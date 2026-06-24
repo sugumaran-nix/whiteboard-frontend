@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Dark rounded background -->
+  <rect width="32" height="32" rx="7" fill="#0e1525"/>
+
+  <!-- Pencil body, rotated -45° around its center -->
+  <g transform="translate(16,16) rotate(-42) translate(-5,-13)">
+    <!-- Eraser cap -->
+    <rect x="2" y="0" width="6" height="3" rx="1.2" fill="#FF7B7B"/>
+    <!-- Ferrule (metal band) -->
+    <rect x="2" y="3" width="6" height="2.2" fill="#94a0b8"/>
+    <!-- Body -->
+    <rect x="2" y="5.2" width="6" height="13" fill="#F2A93B"/>
+    <!-- Body shine -->
+    <rect x="3" y="6" width="1.4" height="11" rx="0.6" fill="#F9C878" opacity="0.55"/>
+    <!-- Wood taper cone -->
+    <polygon points="2,18.2 8,18.2 5,23.5" fill="#d4a96a"/>
+    <!-- Graphite tip -->
+    <polygon points="4.2,21.5 5.8,21.5 5,24.2" fill="#555"/>
+  </g>
+
+  <!-- Star sparkle top-right -->
+  <g fill="#5b8dff">
+    <path d="M25 4 L25.55 5.8 L27.3 6 L25.55 6.2 L25 8 L24.45 6.2 L22.7 6 L24.45 5.8 Z"/>
+  </g>
+  <!-- Small dot sparkle bottom-left -->
+  <circle cx="6" cy="26" r="1.2" fill="#F2A93B" opacity="0.9"/>
+  <!-- Tiny dot -->
+  <circle cx="4" cy="22" r="0.7" fill="#22C55E" opacity="0.8"/>
+</svg>

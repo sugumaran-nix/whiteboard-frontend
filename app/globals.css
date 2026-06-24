@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light mode — "paper + ink" */
+  --paper: #faf8f3;
+  --surface: #ffffff;
+  --ink: #1f2421;
+  --ink-soft: #5b6460;
+  --line: #d8dee9;
+  --accent: #2454ff;
+  --accent-soft: #e3eaff;
+  --amber: #f2a93b;
+
+  /* System-font stacks, chosen deliberately rather than left as Tailwind
+     defaults: a humanist sans for the display face (tight tracking gives
+     it a technical-instrument feel), the OS UI font for body copy, and
+     the OS monospace stack for room codes / cursor labels / data. No
+     webfont fetch required, so this never depends on network access at
+     build or runtime. */
+  --font-display: "Avenir Next", "Century Gothic", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+.dark {
+  /* Dark mode — "blueprint navy" */
+  --paper: #0e1525;
+  --surface: #131b2e;
+  --ink: #edeff4;
+  --ink-soft: #94a0b8;
+  --line: #1c2740;
+  --accent: #5b8dff;
+  --accent-soft: #1a2747;
+  --amber: #f2a93b;
+}
+
+* {
+  border-color: var(--line);
+}
+
+html,
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+}
+
+/* Custom scrollbar to match the instrument-panel aesthetic */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+
+@keyframes draw-in {
+  from {
+    stroke-dashoffset: 240;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-draw-in {
+  stroke-dasharray: 240;
+  animation: draw-in 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 1.6s ease-in-out infinite;
+}
