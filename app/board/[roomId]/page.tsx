@@ -243,7 +243,7 @@ export default function BoardPage() {
         connectionStatus={connStatus}
       />
 
-      <div className="relative flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 flex-col-reverse sm:flex-row">
         <Toolbar
           tool={tool} setTool={setTool}
           color={color} setColor={setColor}
