@@ -90,3 +90,14 @@ body {
 .animate-cursor-blink {
   animation: cursor-blink 1.6s ease-in-out infinite;
 }
+
+/* Hide scrollbar on mobile toolbar while keeping scroll behavior */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Safe area support for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
