@@ -39,7 +39,10 @@ export default function PresenceBar({
     connectionStatus === "open" ? "bg-emerald-500" : connectionStatus === "connecting" ? "bg-amber" : "bg-red-500";
 
   const allUsers = [{ id: "__self__", name: `${selfName} (you)`, color: selfColor }, ...users];
-  const visible = allUsers.slice(0, 5);
+  // Show fewer avatars on mobile to avoid overflow
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+  const maxVisible = isMobile ? 3 : 5;
+  const visible = allUsers.slice(0, maxVisible);
   const overflow = allUsers.length - visible.length;
 
   return (
@@ -82,7 +85,7 @@ export default function PresenceBar({
           )}
         </div>
 
-        <span className="font-mono text-xs text-ink-soft">{userCount} online</span>
+        <span className="hidden xs:block font-mono text-xs text-ink-soft">{userCount} online</span>
 
         <button
           onClick={handleCopy}
