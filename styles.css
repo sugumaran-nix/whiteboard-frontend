@@ -1,0 +1,154 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+/*
+ * Sketchline design system — "drafting desk": warm paper, ink text,
+ * one electric blue accent. All tokens live here; components only use
+ * semantic classes (bg-paper, text-ink-soft, bg-accent-sheen, ...).
+ */
+
+@theme inline {
+  --radius: 0.75rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-panel: 20px;
+
+  --color-paper: var(--paper);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-amber: var(--amber);
+  --color-emerald: var(--emerald);
+  --color-danger: var(--danger);
+  --color-border: var(--line);
+
+  --font-display: "Avenir Next", "Century Gothic", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --shadow-sm: 0 1px 2px oklch(0.245 0.008 155 / 0.06), 0 1px 1px oklch(0.245 0.008 155 / 0.04);
+  --shadow-md: 0 4px 14px -4px oklch(0.245 0.008 155 / 0.14), 0 2px 4px oklch(0.245 0.008 155 / 0.05);
+  --shadow-lg: 0 18px 40px -12px oklch(0.245 0.008 155 / 0.2), 0 6px 14px -6px oklch(0.245 0.008 155 / 0.1);
+  --shadow-glow: 0 14px 36px -12px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+:root {
+  --paper: oklch(0.978 0.008 95);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.955 0.01 95);
+  --ink: oklch(0.245 0.008 155);
+  --ink-soft: oklch(0.475 0.01 160);
+  --ink-faint: oklch(0.635 0.01 160);
+  --line: oklch(0.885 0.014 95);
+  --line-strong: oklch(0.805 0.018 95);
+  --accent: oklch(0.52 0.24 265);
+  --accent-soft: oklch(0.93 0.04 265);
+  --accent-ink: oklch(1 0 0);
+  --amber: oklch(0.79 0.15 75);
+  --emerald: oklch(0.65 0.14 160);
+  --danger: oklch(0.6 0.2 27);
+}
+
+@utility bg-dot-grid {
+  background-image: radial-gradient(circle, var(--line-strong) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@utility bg-accent-sheen {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--accent) 88%, white) 0%,
+    var(--accent) 55%,
+    color-mix(in oklab, var(--accent) 70%, oklch(0.55 0.22 300)) 100%
+  );
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+  }
+
+  :where(button, a, input, label, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@keyframes draw-in {
+  from {
+    stroke-dashoffset: 240;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@utility animate-draw-in {
+  stroke-dasharray: 240;
+  animation: draw-in 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-rise-in {
+  animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--emerald) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@utility animate-pulse-ring {
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
