@@ -16,18 +16,21 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
     try {
       localStorage.setItem("sketchline-theme", next ? "dark" : "light");
     } catch {
-      // localStorage can be unavailable (private mode / SSR edge cases);
-      // the toggle still works for the current session either way.
+      // localStorage can be unavailable (private mode); the toggle still works
+      // for the current session either way.
     }
   };
 
   return (
     <button
       onClick={toggle}
-      aria-label="Toggle dark mode"
-      className={`flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink-soft transition hover:border-accent hover:text-accent ${className}`}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Light mode" : "Dark mode"}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-ink-soft shadow-sm transition hover:border-accent hover:text-accent active:scale-95 ${className}`}
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
+      <span className="transition-transform duration-300" style={{ transform: isDark ? "rotate(0deg)" : "rotate(-12deg)" }}>
+        {isDark ? <SunIcon /> : <MoonIcon />}
+      </span>
     </button>
   );
 }

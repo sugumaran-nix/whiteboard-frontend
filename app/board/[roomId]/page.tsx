@@ -7,6 +7,9 @@ import PresenceBar from "@/components/PresenceBar";
 import CursorLayer from "@/components/CursorLayer";
 import ThemeToggle from "@/components/ThemeToggle";
 import NameModal from "@/components/NameModal";
+import ShortcutsHelp from "@/components/ShortcutsHelp";
+import Toast from "@/components/Toast";
+import { rememberBoard } from "@/lib/recent";
 import { wsUrlForRoom } from "@/lib/config";
 import type {
   ClientMessage, CursorState, Point, RemoteUser,
@@ -32,6 +35,13 @@ export default function BoardPage() {
   const [userCount, setUserCount]   = useState(1);
   const [cursors, setCursors]       = useState<Record<string, CursorState>>({});
   const [connStatus, setConnStatus] = useState<"connecting"|"open"|"closed">("connecting");
+  const [showHelp, setShowHelp]     = useState(false);
+  const [toast, setToast]           = useState<string | null>(null);
+
+  const flash = useCallback((message: string) => {
+    setToast(message);
+    setTimeout(() => setToast((m) => (m === message ? null : m)), 1800);
+  }, []);
 
   // Undo / redo stacks (own strokes only)
   const undoStackRef = useRef<Stroke[]>([]);
@@ -50,6 +60,8 @@ export default function BoardPage() {
   useEffect(() => {
     try { const s = localStorage.getItem("sketchline-name"); if (s) setName(s); } catch {}
   }, []);
+
+  useEffect(() => { if (roomId) rememberBoard(roomId); }, [roomId]);
 
   // ── Send helper ──────────────────────────────────────────────────────────
   const send = useCallback((msg: ClientMessage | { type: "pong" }) => {
@@ -183,12 +195,34 @@ export default function BoardPage() {
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const ctrl = e.ctrlKey || e.metaKey;
-      if (!ctrl) return;
-      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
-      if (e.key === "y" || (e.key === "z" && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+    const TOOL_KEYS: Record<string, Tool> = {
+      "1": "pen", "2": "pencil", "3": "marker", "4": "calligraphy",
+      "5": "crayon", "6": "oil", "7": "watercolour", "8": "spray",
     };
+
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const ctrl = e.ctrlKey || e.metaKey;
+
+      if (ctrl) {
+        if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+        if (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+        return;
+      }
+
+      if (typing || !hasJoined) return;
+
+      if (e.key === "Escape") { setShowHelp(false); return; }
+      if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); return; }
+      if (TOOL_KEYS[e.key]) { setTool(TOOL_KEYS[e.key]); return; }
+      if (e.key.toLowerCase() === "e") { setTool("eraser"); return; }
+      if (e.key === "[") { setBrushWidth(Math.max(1, brushWidth - 2)); return; }
+      if (e.key === "]") { setBrushWidth(Math.min(60, brushWidth + 2)); return; }
+    };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
@@ -219,6 +253,7 @@ export default function BoardPage() {
     send({ type: "clear" });
     undoStackRef.current = []; redoStackRef.current = [];
     setUndoLen(0); setRedoLen(0);
+    flash("Board cleared");
   };
 
   const handleJoin = (chosen: string) => {
@@ -229,10 +264,12 @@ export default function BoardPage() {
   };
 
   return (
-    <div className="flex h-dvh w-full flex-col bg-paper">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-paper">
       {!hasJoined && (
         <NameModal roomId={roomId} defaultName={name || "Guest"} onJoin={handleJoin} />
       )}
+
+      {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
 
       <PresenceBar
         roomId={roomId}
@@ -241,19 +278,14 @@ export default function BoardPage() {
         selfColor={selfColor}
         userCount={userCount}
         connectionStatus={connStatus}
+        onCopied={() => flash("Board link copied")}
+        onShowShortcuts={() => setShowHelp(true)}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col-reverse sm:flex-row">
-        <Toolbar
-          tool={tool} setTool={setTool}
-          color={color} setColor={setColor}
-          brushWidth={brushWidth} setBrushWidth={setBrushWidth}
-          onClear={handleClear}
-          onUndo={handleUndo} onRedo={handleRedo}
-          canUndo={undoLen > 0} canRedo={redoLen > 0}
-        />
-
-        <div className="relative min-w-0 flex-1">
+      {/* Canvas fills the viewport; the toolbar floats above it so drawing
+          space is never cropped by a fixed sidebar. */}
+      <div className="relative min-h-0 flex-1">
+        <div className="absolute inset-0">
           <Canvas
             ref={canvasRef}
             tool={tool} color={color} width={brushWidth}
@@ -272,23 +304,49 @@ export default function BoardPage() {
             }}
             onCursorMove={(p: Point) => send({ type: "cursor", x: p.x, y: p.y })}
           />
-          <CursorLayer cursors={Object.values(cursors)} />
-
-          {/* Connection status banner shown only when disconnected */}
-          {connStatus === "closed" && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-red-300 bg-red-50 px-4 py-1.5 font-mono text-xs text-red-600 shadow dark:border-red-800 dark:bg-red-950/60 dark:text-red-400">
-              Reconnecting… your strokes are safe
-            </div>
-          )}
-          {connStatus === "connecting" && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-line bg-surface px-4 py-1.5 font-mono text-xs text-ink-soft shadow">
-              Connecting…
-            </div>
-          )}
-
-          <ThemeToggle className="absolute right-4 top-4 bg-surface shadow-sm" />
         </div>
+
+        <CursorLayer cursors={Object.values(cursors)} />
+
+        <div className="pointer-events-none absolute inset-0">
+          <Toolbar
+            tool={tool} setTool={setTool}
+            color={color} setColor={setColor}
+            brushWidth={brushWidth} setBrushWidth={setBrushWidth}
+            onClear={handleClear}
+            onUndo={handleUndo} onRedo={handleRedo}
+            canUndo={undoLen > 0} canRedo={redoLen > 0}
+          />
+        </div>
+
+        {/* Connection banner — only while not live */}
+        {connStatus !== "open" && (
+          <div
+            role="status"
+            className={`absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border px-4 py-1.5 font-mono text-xs shadow-md ${
+              connStatus === "closed"
+                ? "border-danger/40 bg-surface text-danger"
+                : "border-line bg-surface text-ink-soft"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${connStatus === "closed" ? "bg-danger" : "bg-amber"} animate-cursor-blink`} />
+            {connStatus === "closed" ? "Reconnecting… your strokes are safe" : "Connecting…"}
+          </div>
+        )}
+
+        <div className="pointer-events-auto absolute right-4 top-4 z-30 flex items-center gap-2">
+          <ThemeToggle className="bg-surface" />
+        </div>
+
+        {/* Empty-board hint, desktop only */}
+        {hasJoined && userCount === 1 && (
+          <p className="pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 text-center text-xs text-ink-faint sm:block">
+            Start drawing — press <kbd className="rounded border border-line px-1 font-mono">?</kbd> for shortcuts, or share the link to invite someone.
+          </p>
+        )}
       </div>
+
+      <Toast message={toast} />
     </div>
   );
 }
