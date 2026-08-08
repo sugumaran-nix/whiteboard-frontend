@@ -37,6 +37,29 @@ export default function BoardPage() {
   const [connStatus, setConnStatus] = useState<"connecting"|"open"|"closed">("connecting");
   const [showHelp, setShowHelp]     = useState(false);
   const [toast, setToast]           = useState<string | null>(null);
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-hide header after 2.5s of no pointer movement / activity (desktop only).
+  // Any mouse move, click, or key press brings it back immediately.
+  useEffect(() => {
+    const wake = () => {
+      setHeaderHidden(false);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => setHeaderHidden(true), 2500);
+    };
+    wake();
+    window.addEventListener("mousemove", wake);
+    window.addEventListener("keydown", wake);
+    window.addEventListener("pointerdown", wake);
+    return () => {
+      window.removeEventListener("mousemove", wake);
+      window.removeEventListener("keydown", wake);
+      window.removeEventListener("pointerdown", wake);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, []);
 
   const flash = useCallback((message: string) => {
     setToast(message);
@@ -112,6 +135,7 @@ export default function BoardPage() {
         break;
       case "clear":
         canvasRef.current?.clearCanvas();
+        flash("Board cleared");
         break;
       case "cursor":
         setCursors(p => ({
@@ -271,20 +295,36 @@ export default function BoardPage() {
 
       {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
 
-      <PresenceBar
-        roomId={roomId}
-        users={users.filter(u => u.id !== selfId)}
-        selfName={name || "You"}
-        selfColor={selfColor}
-        userCount={userCount}
-        connectionStatus={connStatus}
-        onCopied={() => flash("Board link copied")}
-        onShowShortcuts={() => setShowHelp(true)}
-      />
+      <div
+        className={`shrink-0 overflow-hidden transition-[height] duration-300 ease-out ${
+          headerHidden ? "h-0" : "h-14"
+        }`}
+        onMouseEnter={() => setHeaderHidden(false)}
+      >
+        <PresenceBar
+          roomId={roomId}
+          users={users.filter(u => u.id !== selfId)}
+          selfName={name || "You"}
+          selfColor={selfColor}
+          userCount={userCount}
+          connectionStatus={connStatus}
+          onCopied={() => flash("Board link copied")}
+          onShowShortcuts={() => setShowHelp(true)}
+        />
+      </div>
+
+      {/* Thin hover strip to bring the header back when it's hidden */}
+      {headerHidden && (
+        <div
+          className="pointer-events-auto fixed inset-x-0 top-0 z-30 h-2 sm:h-3"
+          onMouseEnter={() => setHeaderHidden(false)}
+        />
+      )}
 
       {/* Canvas fills the viewport; the toolbar floats above it so drawing
-          space is never cropped by a fixed sidebar. */}
-      <div className="relative min-h-0 flex-1">
+          space is never cropped by a fixed sidebar. On mobile, add bottom
+          padding to keep canvas content above the two-row dock. */}
+      <div className="relative min-h-0 flex-1 pb-[130px] sm:pb-0">
         <div className="absolute inset-0">
           <Canvas
             ref={canvasRef}
@@ -316,6 +356,7 @@ export default function BoardPage() {
             onClear={handleClear}
             onUndo={handleUndo} onRedo={handleRedo}
             canUndo={undoLen > 0} canRedo={redoLen > 0}
+            collapsed={railCollapsed} onToggleCollapse={() => setRailCollapsed(v => !v)}
           />
         </div>
 
