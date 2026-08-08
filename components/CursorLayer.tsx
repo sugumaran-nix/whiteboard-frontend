@@ -13,6 +13,7 @@ export default function CursorLayer({ cursors }: CursorLayerProps) {
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
       {cursors.map((c) => {
         const idle = Date.now() - c.lastSeen > 1800;
+        const nearRightEdge = c.x > 0.82;
         return (
           <div
             key={c.id}
@@ -29,7 +30,9 @@ export default function CursorLayer({ cursors }: CursorLayerProps) {
               />
             </svg>
             <span
-              className="ml-3.5 -mt-1 inline-block max-w-[9rem] truncate rounded-md px-1.5 py-0.5 font-mono text-[10px] font-medium text-white shadow-md ring-1 ring-black/10"
+              className={`-mt-1 inline-block max-w-[9rem] truncate rounded-md px-1.5 py-0.5 font-mono text-[10px] font-medium text-white shadow-md ring-1 ring-black/10 ${
+                nearRightEdge ? "absolute right-3.5 top-4" : "ml-3.5"
+              }`}
               style={{ backgroundColor: c.color }}
             >
               {c.name}

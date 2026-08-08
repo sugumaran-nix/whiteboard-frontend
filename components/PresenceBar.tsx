@@ -61,7 +61,7 @@ export default function PresenceBar({
         <button
           onClick={handleCopy}
           title="Copy room link"
-          className="flex min-w-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 font-mono text-[11px] text-ink-soft shadow-sm transition hover:border-accent hover:text-accent sm:text-xs"
+          className="flex min-w-0 max-w-[120px] items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 font-mono text-[11px] text-ink-soft shadow-sm transition hover:border-accent hover:text-accent sm:max-w-none sm:text-xs"
         >
           <span className="truncate">{roomId}</span>
           {copied ? <CheckIcon /> : <CopyIcon />}

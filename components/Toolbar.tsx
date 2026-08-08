@@ -4,7 +4,8 @@ import type { Tool } from "@/lib/types";
 
 const SWATCHES = [
   "#1F2421","#2454FF","#F2A93B","#E0473C",
-  "#22A06B","#9B5DE5","#EC4899","#0EA5E9","#ffffff",
+  "#22A06B","#9B5DE5","#EC4899","#0EA5E9",
+  "#ffffff","#FF6B35","#00B4D8","#06D6A0",
 ];
 
 const SIZE_PRESETS = [2, 6, 14, 28, 48];
@@ -21,6 +22,8 @@ interface ToolbarProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 type ToolDef = { id: Tool; label: string; key: string; icon: JSX.Element };
@@ -41,6 +44,7 @@ type Panel = "color" | "size" | null;
 export default function Toolbar({
   tool, setTool, color, setColor, brushWidth, setBrushWidth,
   onClear, onUndo, onRedo, canUndo, canRedo,
+  collapsed = false, onToggleCollapse,
 }: ToolbarProps) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [mounted, setMounted]           = useState(false);
@@ -49,7 +53,7 @@ export default function Toolbar({
 
   useEffect(() => setMounted(true), []);
 
-  // Dismiss the open popover on Escape or an outside click.
+  // Dismiss popover on Escape or outside click
   useEffect(() => {
     if (!panel) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPanel(null); };
@@ -93,7 +97,29 @@ export default function Toolbar({
         ref={railRef}
         className="pointer-events-auto absolute left-4 top-1/2 z-40 hidden -translate-y-1/2 sm:block"
       >
-        <div className="flex w-[52px] flex-col items-center gap-1 rounded-panel border border-line glass p-1.5 shadow-lg">
+        {collapsed ? (
+          <button
+            onClick={onToggleCollapse}
+            title="Show toolbar"
+            aria-label="Show toolbar"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-line glass text-ink-soft shadow-lg transition hover:text-accent"
+          >
+            <ChevronRightIcon />
+          </button>
+        ) : (
+        <>
+        <div className="flex max-h-[calc(100dvh-2rem)] w-[52px] flex-col items-center gap-1 overflow-y-auto no-scrollbar rounded-panel border border-line glass p-1.5 shadow-lg">
+          <button
+            onClick={onToggleCollapse}
+            title="Collapse toolbar"
+            aria-label="Collapse toolbar"
+            className="flex h-7 w-9 items-center justify-center rounded-lg text-ink-faint transition hover:bg-accent-soft hover:text-accent"
+          >
+            <ChevronLeftIcon />
+          </button>
+
+          <Rule />
+
           <RailBtn label="Undo" hint="Ctrl+Z" onClick={onUndo} disabled={!canUndo}><UndoIcon /></RailBtn>
           <RailBtn label="Redo" hint="Ctrl+Y" onClick={onRedo} disabled={!canRedo}><RedoIcon /></RailBtn>
 
@@ -157,7 +183,7 @@ export default function Toolbar({
         {/* Popovers anchored to the rail */}
         {panel === "color" && (
           <Popover title="Colour">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {SWATCHES.map((s) => (
                 <button
                   key={s}
@@ -210,91 +236,144 @@ export default function Toolbar({
             />
           </Popover>
         )}
+        </>
+        )}
       </div>
 
       {/* ══════════════════════════════════════════════
-          MOBILE — floating bottom dock (below sm)
+          MOBILE — two-row floating bottom dock
           ══════════════════════════════════════════════ */}
-      <div className="pointer-events-auto absolute inset-x-2 bottom-2 z-40 sm:hidden safe-bottom">
+      <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 sm:hidden">
+
+        {/* Color panel — full-width grid above dock */}
         {panel === "color" && (
-          <div className="mb-2 flex items-center gap-2.5 overflow-x-auto no-scrollbar rounded-panel border border-line glass px-3 py-2.5 shadow-lg animate-pop-in">
-            {SWATCHES.map((s) => (
-              <button
-                key={s}
-                title={s}
-                onClick={() => pickColor(s, true)}
-                style={{ backgroundColor: s }}
-                className={`h-9 w-9 flex-shrink-0 rounded-full border border-line-strong transition active:scale-95 ${
-                  color === s && tool !== "eraser" ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""
-                }`}
-              />
-            ))}
-            <label className="relative flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-line text-ink-soft">
-              <PipetteIcon />
-              <input type="color" value={color} onChange={(e) => pickColor(e.target.value)} className="absolute h-0 w-0 opacity-0" />
-            </label>
+          <div className="mx-3 mb-2 rounded-2xl border border-line glass p-3 shadow-lg animate-pop-in">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">Colour</p>
+            <div className="grid grid-cols-6 gap-2.5">
+              {SWATCHES.map((s) => (
+                <button
+                  key={s}
+                  title={s}
+                  onClick={() => pickColor(s, true)}
+                  style={{ backgroundColor: s }}
+                  className={`h-10 w-full rounded-xl border border-line-strong transition active:scale-95 ${
+                    color === s && tool !== "eraser" ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""
+                  }`}
+                />
+              ))}
+              {/* Custom color picker — same grid cell size */}
+              <label className="relative flex h-10 w-full cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-line text-ink-soft active:scale-95">
+                <PipetteIcon />
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => pickColor(e.target.value)}
+                  className="absolute h-0 w-0 opacity-0"
+                />
+              </label>
+            </div>
           </div>
         )}
 
+        {/* Size panel — full-width above dock */}
         {panel === "size" && (
-          <div className="mb-2 flex items-center gap-3 rounded-panel border border-line glass px-4 py-3 shadow-lg animate-pop-in">
-            <span className="w-10 flex-shrink-0 text-right font-mono text-xs text-ink-soft">{brushWidth}px</span>
-            <input
-              type="range" min={1} max={60} value={brushWidth}
-              aria-label="Brush size"
-              onChange={(e) => setBrushWidth(Number(e.target.value))}
-              className="flex-1 accent-accent"
-            />
-            <span
-              className="flex-shrink-0 rounded-full border border-line-strong"
-              style={{
-                width: Math.max(8, Math.min(brushWidth * 0.6, 30)),
-                height: Math.max(8, Math.min(brushWidth * 0.6, 30)),
-                backgroundColor: tool === "eraser" ? "transparent" : color,
-              }}
-            />
+          <div className="mx-3 mb-2 rounded-2xl border border-line glass px-4 py-3 shadow-lg animate-pop-in">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">Brush size · {brushWidth}px</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="range" min={1} max={60} value={brushWidth}
+                aria-label="Brush size"
+                onChange={(e) => setBrushWidth(Number(e.target.value))}
+                className="flex-1 accent-accent"
+              />
+              <span
+                className="flex-shrink-0 rounded-full border border-line-strong"
+                style={{
+                  width: Math.max(10, Math.min(brushWidth * 0.6, 32)),
+                  height: Math.max(10, Math.min(brushWidth * 0.6, 32)),
+                  backgroundColor: tool === "eraser" ? "transparent" : color,
+                }}
+              />
+            </div>
+            {/* Size presets */}
+            <div className="mt-3 flex items-center gap-2">
+              {SIZE_PRESETS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setBrushWidth(s)}
+                  className={`flex h-10 flex-1 items-center justify-center rounded-xl border transition active:scale-95 ${
+                    brushWidth === s ? "border-accent bg-accent-soft" : "border-line"
+                  }`}
+                >
+                  <span
+                    className="rounded-full bg-ink"
+                    style={{ width: Math.min(s * 0.5 + 3, 22), height: Math.min(s * 0.5 + 3, 22) }}
+                  />
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Current tool readout keeps the compact dock self-explanatory */}
-        <p className="mb-1.5 text-center font-mono text-[10px] text-ink-faint">
-          {tool === "eraser" ? "Eraser" : activeTool?.label} · {brushWidth}px
-        </p>
-
-        <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar rounded-panel border border-line glass px-2 py-1.5 shadow-lg">
-          <DockBtn label="Undo" onClick={onUndo} disabled={!canUndo}><UndoIcon /></DockBtn>
-          <DockBtn label="Redo" onClick={onRedo} disabled={!canRedo}><RedoIcon /></DockBtn>
-          <Sep />
+        {/* ── Row 1: Tool selector ─────────────────── */}
+        <div className="mx-3 mb-1.5 flex items-center gap-0.5 overflow-x-auto no-scrollbar rounded-2xl border border-line glass px-2 py-1.5 shadow-md">
           {DRAW_TOOLS.map((t) => (
             <DockBtn key={t.id} label={t.label} active={tool === t.id} onClick={() => { setTool(t.id); setPanel(null); }}>
               {t.icon}
             </DockBtn>
           ))}
+          <Sep />
           <DockBtn label="Eraser" active={tool === "eraser"} onClick={() => { setTool("eraser"); setPanel(null); }}>
             <EraserIcon />
           </DockBtn>
+        </div>
+
+        {/* ── Row 2: Actions + colour + size ──────── */}
+        <div className="mx-3 mb-3 flex items-center gap-0.5 rounded-2xl border border-line glass px-2 py-1.5 shadow-md" style={{ paddingBottom: `calc(0.375rem + env(safe-area-inset-bottom))` }}>
+
+          {/* Active tool indicator */}
+          <div className="flex flex-1 items-center gap-1.5 pl-1">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-accent text-accent-ink">
+              {tool === "eraser" ? <EraserIcon /> : activeTool?.icon}
+            </span>
+            <span className="font-mono text-[10px] text-ink-faint">
+              {tool === "eraser" ? "Eraser" : activeTool?.label} · {brushWidth}px
+            </span>
+          </div>
+
           <Sep />
+
+          <DockBtn label="Undo" onClick={onUndo} disabled={!canUndo}><UndoIcon /></DockBtn>
+          <DockBtn label="Redo" onClick={onRedo} disabled={!canRedo}><RedoIcon /></DockBtn>
+
+          <Sep />
+
+          {/* Colour button */}
           <DockBtn label="Colour" active={panel === "color"} onClick={() => setPanel(panel === "color" ? null : "color")}>
             <span
-              className="h-5 w-5 rounded-full border border-line-strong"
+              className="h-5 w-5 rounded-full border-2 border-line-strong shadow-sm"
               style={{ backgroundColor: tool === "eraser" ? "transparent" : color }}
             />
           </DockBtn>
+
+          {/* Size button */}
           <DockBtn label="Brush size" active={panel === "size"} onClick={() => setPanel(panel === "size" ? null : "size")}>
             <SizeIcon />
           </DockBtn>
+
           <Sep />
+
+          {/* Clear button */}
           <button
             onClick={handleClear}
             aria-label="Clear board"
-            className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition ${
+            className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition active:scale-95 ${
               confirmClear ? "bg-danger/12 text-danger ring-1 ring-danger" : "text-ink-soft"
             }`}
           >
             {confirmClear ? <span className="text-[10px] font-semibold">Sure?</span> : <TrashIcon />}
           </button>
         </div>
-
       </div>
     </>
   );
@@ -357,7 +436,7 @@ function DockBtn({
 
 function Popover({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="absolute left-[calc(100%+10px)] top-1/2 w-52 -translate-y-1/2 animate-pop-in rounded-panel border border-line bg-surface p-3 shadow-lg">
+    <div className="absolute left-[calc(100%+10px)] top-1/2 w-56 -translate-y-1/2 animate-pop-in rounded-panel border border-line bg-surface p-3 shadow-lg">
       <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">{title}</p>
       <div className="relative">{children}</div>
     </div>
@@ -392,3 +471,5 @@ function RedoIcon()        { return <I><path d="M15 14l5-5-5-5"/><path d="M20 9H
 function TrashIcon()       { return <I><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></I>; }
 function PipetteIcon()     { return <I><path d="M2 22l4-4"/><path d="M14 4l6 6-9 9-6-6 9-9z"/><path d="M5 11l3 3"/></I>; }
 function SizeIcon()        { return <I><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="7" strokeDasharray="2 2"/></I>; }
+function ChevronLeftIcon() { return <I><path d="M15 18l-6-6 6-6"/></I>; }
+function ChevronRightIcon(){ return <I><path d="M9 18l6-6-6-6"/></I>; }
