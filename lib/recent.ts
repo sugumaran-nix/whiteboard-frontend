@@ -1,5 +1,3 @@
-// Tiny localStorage-backed list of recently visited boards, used by the
-// landing page so returning to a board is one click instead of a re-paste.
 const KEY = "sketchline-recent";
 const MAX = 5;
 
@@ -27,9 +25,7 @@ export function rememberBoard(roomId: string): void {
       ...readRecentBoards().filter((b) => b.roomId !== roomId),
     ].slice(0, MAX);
     localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    // Storage may be unavailable (private mode) — recents are a nicety only.
-  }
+  } catch {}
 }
 
 export function relativeTime(ts: number): string {

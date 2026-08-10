@@ -41,8 +41,6 @@ export default function BoardPage() {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-hide header after 2.5s of no pointer movement / activity (desktop only).
-  // Any mouse move, click, or key press brings it back immediately.
   useEffect(() => {
     const wake = () => {
       setHeaderHidden(false);
@@ -66,7 +64,6 @@ export default function BoardPage() {
     setTimeout(() => setToast((m) => (m === message ? null : m)), 1800);
   }, []);
 
-  // Undo / redo stacks (own strokes only)
   const undoStackRef = useRef<Stroke[]>([]);
   const redoStackRef = useRef<Stroke[]>([]);
   const [undoLen, setUndoLen] = useState(0);
@@ -77,7 +74,7 @@ export default function BoardPage() {
   const retryRef  = useRef(0);
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadRef   = useRef(false);
-  const nameRef   = useRef(name); // keep a ref so the ws closure always has latest name
+  const nameRef   = useRef(name);
   useEffect(() => { nameRef.current = name; }, [name]);
 
   useEffect(() => {
@@ -86,99 +83,61 @@ export default function BoardPage() {
 
   useEffect(() => { if (roomId) rememberBoard(roomId); }, [roomId]);
 
-  // ── Send helper ──────────────────────────────────────────────────────────
   const send = useCallback((msg: ClientMessage | { type: "pong" }) => {
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
-  // ── Message handler ──────────────────────────────────────────────────────
   const handleMsg = useCallback((msg: ServerMessage | { type: "ping" }) => {
-    // Respond to server keepalive pings immediately
-    if (msg.type === "ping") {
-      send({ type: "pong" });
-      return;
-    }
-
+    if (msg.type === "ping") { send({ type: "pong" }); return; }
     switch (msg.type) {
       case "init":
-        setSelfId(msg.clientId);
-        setSelfColor(msg.color);
-        setUsers(msg.users);
-        setUserCount(msg.userCount);
+        setSelfId(msg.clientId); setSelfColor(msg.color);
+        setUsers(msg.users); setUserCount(msg.userCount);
         canvasRef.current?.redrawAll(msg.strokes);
         break;
       case "user_joined":
-        setUsers(p => [...p.filter(u => u.id !== msg.user.id), msg.user]);
-        break;
+        setUsers(p => [...p.filter(u => u.id !== msg.user.id), msg.user]); break;
       case "user_left":
         setUsers(p => p.filter(u => u.id !== msg.id));
-        setCursors(p => { const n = {...p}; delete n[msg.id]; return n; });
-        break;
+        setCursors(p => { const n = {...p}; delete n[msg.id]; return n; }); break;
       case "user_renamed":
-        setUsers(p => p.map(u => u.id === msg.id ? {...u, name: msg.name} : u));
-        break;
-      case "user_count":
-        setUserCount(msg.count);
-        break;
+        setUsers(p => p.map(u => u.id === msg.id ? {...u, name: msg.name} : u)); break;
+      case "user_count": setUserCount(msg.count); break;
       case "stroke_start":
         canvasRef.current?.applyRemoteStrokeStart({
           strokeId: msg.strokeId, color: msg.color, width: msg.width,
           tool: msg.tool, points: [msg.point], authorId: msg.id,
-        });
-        break;
+        }); break;
       case "stroke_point":
-        canvasRef.current?.applyRemoteStrokePoint(msg.strokeId, msg.point);
-        break;
+        canvasRef.current?.applyRemoteStrokePoint(msg.strokeId, msg.point); break;
       case "stroke_end":
-        canvasRef.current?.applyRemoteStrokeEnd(msg.strokeId);
-        break;
+        canvasRef.current?.applyRemoteStrokeEnd(msg.strokeId); break;
       case "clear":
-        canvasRef.current?.clearCanvas();
-        flash("Board cleared");
-        break;
+        canvasRef.current?.clearCanvas(); flash("Board cleared"); break;
       case "cursor":
         setCursors(p => ({
           ...p,
-          [msg.id]: {
-            id: msg.id, x: msg.x, y: msg.y,
-            name: msg.name, color: msg.color, lastSeen: Date.now(),
-          },
-        }));
-        break;
-      case "undo":
-        canvasRef.current?.removeStroke(msg.strokeId);
-        break;
-      case "redo":
-        canvasRef.current?.addStroke(msg.stroke);
-        break;
+          [msg.id]: { id: msg.id, x: msg.x, y: msg.y, name: msg.name, color: msg.color, lastSeen: Date.now() },
+        })); break;
+      case "undo": canvasRef.current?.removeStroke(msg.strokeId); break;
+      case "redo": canvasRef.current?.addStroke(msg.stroke); break;
     }
-  }, [send]);
+  }, [send, flash]);
 
-  // ── WebSocket lifecycle ──────────────────────────────────────────────────
   useEffect(() => {
     if (!hasJoined || !roomId) return;
     deadRef.current = false;
-
     const connect = () => {
       if (deadRef.current) return;
       setConnStatus("connecting");
-
       const url = wsUrlForRoom(roomId, nameRef.current);
       const ws  = new WebSocket(url);
       wsRef.current = ws;
-
-      ws.onopen = () => {
-        retryRef.current = 0;
-        setConnStatus("open");
-      };
-
+      ws.onopen = () => { retryRef.current = 0; setConnStatus("open"); };
       ws.onmessage = (e) => {
-        try {
-          handleMsg(JSON.parse(e.data) as ServerMessage | { type: "ping" });
-        } catch { /* ignore malformed frames */ }
+        try { handleMsg(JSON.parse(e.data) as ServerMessage | { type: "ping" }); } catch {}
       };
-
       ws.onclose = (ev) => {
         setConnStatus("closed");
         if (deadRef.current) return;
@@ -186,15 +145,9 @@ export default function BoardPage() {
         console.log(`[ws] closed (code=${ev.code}) — reconnecting in ${delay}ms`);
         timerRef.current = setTimeout(connect, delay);
       };
-
-      ws.onerror = (ev) => {
-        console.error("[ws] error", ev);
-        ws.close();
-      };
+      ws.onerror = (ev) => { console.error("[ws] error", ev); ws.close(); };
     };
-
     connect();
-
     return () => {
       deadRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -202,7 +155,6 @@ export default function BoardPage() {
     };
   }, [hasJoined, roomId, handleMsg]);
 
-  // ── Stale cursor cleanup ─────────────────────────────────────────────────
   useEffect(() => {
     const t = setInterval(() => {
       setCursors(p => {
@@ -217,42 +169,7 @@ export default function BoardPage() {
     return () => clearInterval(t);
   }, []);
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  useEffect(() => {
-    const TOOL_KEYS: Record<string, Tool> = {
-      "1": "pen", "2": "pencil", "3": "marker", "4": "calligraphy",
-      "5": "crayon", "6": "oil", "7": "watercolour", "8": "spray",
-    };
-
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const typing =
-        target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-      const ctrl = e.ctrlKey || e.metaKey;
-
-      if (ctrl) {
-        if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
-        if (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey)) { e.preventDefault(); handleRedo(); }
-        return;
-      }
-
-      if (typing || !hasJoined) return;
-
-      if (e.key === "Escape") { setShowHelp(false); return; }
-      if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); return; }
-      if (TOOL_KEYS[e.key]) { setTool(TOOL_KEYS[e.key]); return; }
-      if (e.key.toLowerCase() === "e") { setTool("eraser"); return; }
-      if (e.key === "[") { setBrushWidth(Math.max(1, brushWidth - 2)); return; }
-      if (e.key === "]") { setBrushWidth(Math.min(60, brushWidth + 2)); return; }
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
-
-  // ── Undo / Redo ──────────────────────────────────────────────────────────
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     const stroke = undoStackRef.current.pop();
     if (!stroke) return;
     redoStackRef.current.push(stroke);
@@ -260,9 +177,9 @@ export default function BoardPage() {
     setRedoLen(redoStackRef.current.length);
     canvasRef.current?.removeStroke(stroke.strokeId);
     send({ type: "undo", strokeId: stroke.strokeId });
-  };
+  }, [send]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     const stroke = redoStackRef.current.pop();
     if (!stroke) return;
     undoStackRef.current.push(stroke);
@@ -270,19 +187,46 @@ export default function BoardPage() {
     setRedoLen(redoStackRef.current.length);
     canvasRef.current?.addStroke(stroke);
     send({ type: "redo", stroke });
-  };
+  }, [send]);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     canvasRef.current?.clearCanvas();
     send({ type: "clear" });
     undoStackRef.current = []; redoStackRef.current = [];
     setUndoLen(0); setRedoLen(0);
     flash("Board cleared");
-  };
+  }, [send, flash]);
+
+  // Keyboard shortcuts — dep array is stable; [ ] use functional updater so
+  // brushWidth doesn't need to be listed.
+  useEffect(() => {
+    const TOOL_KEYS: Record<string, Tool> = {
+      "1": "pen", "2": "pencil", "3": "marker", "4": "calligraphy",
+      "5": "crayon", "6": "oil", "7": "watercolour", "8": "spray",
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl) {
+        if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+        if (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+        return;
+      }
+      if (typing || !hasJoined) return;
+      if (e.key === "Escape") { setShowHelp(false); return; }
+      if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); return; }
+      if (TOOL_KEYS[e.key]) { setTool(TOOL_KEYS[e.key]); return; }
+      if (e.key.toLowerCase() === "e") { setTool("eraser"); return; }
+      if (e.key === "[") { setBrushWidth(w => Math.max(1, w - 2)); return; }
+      if (e.key === "]") { setBrushWidth(w => Math.min(60, w + 2)); return; }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hasJoined, handleUndo, handleRedo]);
 
   const handleJoin = (chosen: string) => {
-    setName(chosen);
-    nameRef.current = chosen;
+    setName(chosen); nameRef.current = chosen;
     try { localStorage.setItem("sketchline-name", chosen); } catch {}
     setHasJoined(true);
   };
@@ -292,13 +236,10 @@ export default function BoardPage() {
       {!hasJoined && (
         <NameModal roomId={roomId} defaultName={name || "Guest"} onJoin={handleJoin} />
       )}
-
       {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
 
       <div
-        className={`shrink-0 overflow-hidden transition-[height] duration-300 ease-out ${
-          headerHidden ? "h-0" : "h-14"
-        }`}
+        className={`shrink-0 overflow-hidden transition-[height] duration-300 ease-out ${headerHidden ? "h-0" : "h-14"}`}
         onMouseEnter={() => setHeaderHidden(false)}
       >
         <PresenceBar
@@ -313,7 +254,6 @@ export default function BoardPage() {
         />
       </div>
 
-      {/* Thin hover strip to bring the header back when it's hidden */}
       {headerHidden && (
         <div
           className="pointer-events-auto fixed inset-x-0 top-0 z-30 h-2 sm:h-3"
@@ -321,9 +261,6 @@ export default function BoardPage() {
         />
       )}
 
-      {/* Canvas fills the viewport; the toolbar floats above it so drawing
-          space is never cropped by a fixed sidebar. On mobile, add bottom
-          padding to keep canvas content above the two-row dock. */}
       <div className="relative min-h-0 flex-1 pb-[130px] sm:pb-0">
         <div className="absolute inset-0">
           <Canvas
@@ -334,9 +271,7 @@ export default function BoardPage() {
               redoStackRef.current = []; setRedoLen(0);
               send({ type: "stroke_start", ...s });
             }}
-            onStrokePoint={(strokeId, point) =>
-              send({ type: "stroke_point", strokeId, point })
-            }
+            onStrokePoint={(strokeId, point) => send({ type: "stroke_point", strokeId, point })}
             onStrokeEnd={(strokeId, stroke) => {
               undoStackRef.current = [...undoStackRef.current, stroke].slice(-MAX_UNDO);
               setUndoLen(undoStackRef.current.length);
@@ -360,7 +295,6 @@ export default function BoardPage() {
           />
         </div>
 
-        {/* Connection banner — only while not live */}
         {connStatus !== "open" && (
           <div
             role="status"
@@ -379,7 +313,6 @@ export default function BoardPage() {
           <ThemeToggle className="bg-surface" />
         </div>
 
-        {/* Empty-board hint, desktop only */}
         {hasJoined && userCount === 1 && (
           <p className="pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 text-center text-xs text-ink-faint sm:block">
             Start drawing — press <kbd className="rounded border border-line px-1 font-mono">?</kbd> for shortcuts, or share the link to invite someone.
