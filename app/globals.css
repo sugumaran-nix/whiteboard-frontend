@@ -3,11 +3,10 @@
 @tailwind utilities;
 
 :root {
-  /* Light mode — "paper + ink" */
   --paper: #faf8f3;
   --surface: #ffffff;
   --surface-2: #f4f1ea;
-  --glass: rgba(255, 255, 255, 0.78);
+  --glass: rgba(255, 255, 255, 0.82);
   --ink: #1f2421;
   --ink-soft: #5b6460;
   --ink-faint: #8b948f;
@@ -24,19 +23,16 @@
   --shadow-lg: 0 18px 40px -12px rgba(31, 36, 33, 0.22), 0 6px 14px -6px rgba(31, 36, 33, 0.1);
   --shadow-glow: 0 12px 34px -10px color-mix(in oklab, var(--accent) 45%, transparent);
 
-  /* System-font stacks: humanist sans display face, OS UI body font, OS mono
-     for room codes and cursor labels. No webfont fetch at build or runtime. */
   --font-display: "Avenir Next", "Century Gothic", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-body: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
 .dark {
-  /* Dark mode — "blueprint navy" */
   --paper: #0c1220;
   --surface: #131b2e;
   --surface-2: #1a2439;
-  --glass: rgba(19, 27, 46, 0.78);
+  --glass: rgba(19, 27, 46, 0.82);
   --ink: #edeff4;
   --ink-soft: #98a4bb;
   --ink-faint: #6c7893;
@@ -58,14 +54,15 @@
   border-color: var(--line);
 }
 
-html,
-body {
+html, body {
   background-color: var(--paper);
   color: var(--ink);
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -73,29 +70,19 @@ body {
   overscroll-behavior: none;
 }
 
-/* One consistent, visible focus treatment across the whole app */
 :where(button, a, input, label, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
-/* Custom scrollbar to match the instrument-panel aesthetic */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 999px;
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
 
 @keyframes draw-in {
   from { stroke-dashoffset: 240; }
-  to { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: 0; }
 }
 .animate-draw-in {
   stroke-dasharray: 240;
@@ -104,57 +91,94 @@ body {
 
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  50%       { opacity: 0.35; }
 }
 .animate-cursor-blink { animation: cursor-blink 1.6s ease-in-out infinite; }
 
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
-  70% { box-shadow: 0 0 0 7px transparent; }
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .animate-pulse-ring { animation: pulse-ring 2.2s ease-out infinite; }
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.animate-rise-in { animation: rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-rise-in { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes pop-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .animate-pop-in { animation: pop-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translate(-50%, 12px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
-.animate-toast-in { animation: toast-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-/* Frosted panel used by the floating toolbar, presence bar and overlays */
+.canvas-hint {
+  pointer-events: none;
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+.canvas-hint kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-soft);
+  background: var(--surface);
+}
+
 .glass {
   background-color: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.6);
-  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.7);
+  -webkit-backdrop-filter: blur(16px) saturate(1.7);
 }
 
-/* Hide scrollbar on mobile toolbar while keeping scroll behavior */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Safe area support for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 640px) {
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  button.compact {
+    min-height: unset;
+    min-width: unset;
   }
 }
