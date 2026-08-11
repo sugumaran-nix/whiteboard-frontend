@@ -50,16 +50,8 @@ export default function PresenceBar({
       {/* Left: Logo + Room code */}
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
 
-        
-          href="/"
-          aria-label="Back to Sketchline home"
-          title="Back to home"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-sheen text-accent-ink shadow-sm transition hover:opacity-90"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M4 18c3-8 6 4 8-2s4 2 8-6" />
-          </svg>
-        </a>
+
+        <a href="/" aria-label="Back to Sketchline home" title="Back to home" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-sheen text-accent-ink shadow-sm transition hover:opacity-90"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M4 18c3-8 6 4 8-2s4 2 8-6" /></svg></a>
 
         <span className="hidden font-display text-sm font-semibold tracking-tight sm:block">Sketchline</span>
         <span className="hidden h-4 w-px shrink-0 bg-line sm:block" />
