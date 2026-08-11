@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { randomRoomId } from "@/lib/config";
 import { readRecentBoards, relativeTime, type RecentBoard } from "@/lib/recent";
@@ -19,175 +19,193 @@ export default function Home() {
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     const code = joinCode.trim().toLowerCase().replace(/\s+/g, "");
-    if (!code) {
-      setError("Enter a room code, or create a new board.");
-      return;
-    }
-    if (!/^[a-z0-9-]{3,40}$/.test(code)) {
-      setError("Codes use letters, numbers and dashes only.");
-      return;
-    }
+    if (!code) { setError("Enter a room code first."); return; }
+    if (!/^[a-z0-9-]{3,40}$/.test(code)) { setError("Codes use letters, numbers and dashes only."); return; }
     router.push(`/board/${encodeURIComponent(code)}`);
   };
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-paper">
-      <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-50" />
+    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-paper">
+
+      {/* Subtle background grid — not a dot soup, just a faint structural guide */}
       <div
-        className="pointer-events-none absolute -top-40 left-1/2 h-[38rem] w-[38rem] -translate-x-1/2 rounded-full opacity-[0.16] blur-3xl"
-        style={{ background: "radial-gradient(circle, var(--accent), transparent 65%)" }}
+        className="pointer-events-none absolute inset-0 opacity-[0.035]"
+        style={{
+          backgroundImage: "radial-gradient(circle, var(--ink) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }}
       />
 
-      <div className="relative mx-auto flex min-h-dvh max-w-5xl flex-col px-5 sm:px-6">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-6">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <Mark />
-            <span className="truncate font-display text-lg font-semibold tracking-tight">Sketchline</span>
-          </div>
+      {/* Single accent glow — top centre only, restrained */}
+      <div
+        className="pointer-events-none absolute -top-48 left-1/2 h-96 w-[600px] -translate-x-1/2 rounded-full opacity-[0.12] blur-3xl"
+        style={{ background: "var(--accent)" }}
+      />
+
+      {/* ── Navbar ── */}
+      <header className="relative z-20 flex items-center justify-between px-5 py-5 sm:px-8">
+        <div className="flex items-center gap-2.5">
+          <LogoMark />
+          <span className="font-display text-[15px] font-semibold tracking-tight text-ink">Sketchline</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <a
+            href="https://github.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden text-[13px] text-ink-soft transition hover:text-ink sm:block"
+          >
+            Open source
+          </a>
           <ThemeToggle />
-        </header>
+        </div>
+      </header>
 
-        <section className="flex flex-1 flex-col items-center justify-center gap-9 py-10 text-center sm:gap-11">
-          <div className="flex flex-col items-center gap-5">
-            <span className="animate-rise-in rounded-full border border-line bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-ink-soft shadow-sm">
-              WebSockets · Canvas · No signup
-            </span>
-            <h1 className="max-w-2xl animate-rise-in font-display text-[2.6rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-              Draw together,
-              <br />
-              <span className="text-accent">live.</span>
-            </h1>
-            <p className="max-w-md animate-rise-in text-balance text-base leading-relaxed text-ink-soft sm:text-lg">
-              Open a board, share the link, and watch every stroke appear on
-              everyone&apos;s screen instantly.
-            </p>
-          </div>
+      {/* ── Hero ── */}
+      <main className="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col items-center px-5 pt-10 pb-16 sm:px-8 sm:pt-16">
 
-          <LiveStrokePreview />
+        {/* Headline — no eyebrow badge, no gradient text (impeccable bans both) */}
+        <div className="animate-rise-in mb-8 text-center sm:mb-10">
+          <h1
+            className="font-display text-[2.6rem] font-semibold leading-[1.06] tracking-tight text-ink sm:text-[3.6rem]"
+            style={{ textWrap: "balance" } as React.CSSProperties}
+          >
+            Draw together,{" "}
+            <span style={{ color: "var(--accent)" }}>live.</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-md text-balance text-[16px] leading-relaxed text-ink-soft sm:text-[17px]">
+            Open a board, share the link. Every stroke appears on everyone's screen the moment you draw it — no login, no friction.
+          </p>
+        </div>
 
-          <div className="flex w-full max-w-sm flex-col items-center gap-4">
-            <button
-              onClick={handleCreate}
-              className="group w-full rounded-xl bg-accent-sheen px-6 py-3.5 font-medium text-accent-ink shadow-glow transition hover:brightness-[1.06] active:scale-[0.99]"
+        {/* Live stroke preview — raw SVG on transparent bg, not boxed */}
+        <div className="animate-rise-in mb-10 h-28 w-full max-w-sm sm:h-36" style={{ animationDelay: "0.05s" }}>
+          <StrokePreview />
+        </div>
+
+        {/* CTA */}
+        <div className="animate-rise-in flex w-full flex-col gap-3" style={{ animationDelay: "0.1s" }}>
+          <button
+            onClick={handleCreate}
+            className="group relative flex h-13 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl text-[15px] font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+            style={{
+              background: "var(--accent)",
+              boxShadow: "var(--shadow-glow)",
+              height: "52px",
+            }}
+          >
+            New board
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              className="transition-transform duration-200 group-hover:translate-x-1"
             >
-              Create a new board
-              <span className="ml-1.5 inline-block transition-transform group-hover:translate-x-0.5">→</span>
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Join form */}
+          <form onSubmit={handleJoin} className="flex gap-2">
+            <input
+              value={joinCode}
+              onChange={(e) => { setJoinCode(e.target.value); setError(null); }}
+              aria-label="Room code"
+              placeholder="Paste a board code…"
+              className="h-[52px] min-w-0 flex-1 rounded-2xl border border-line bg-surface px-4 font-mono text-[13px] text-ink outline-none transition placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-[var(--accent)]/20"
+              style={{ fontSize: "13px" }}
+            />
+            <button
+              type="submit"
+              className="h-[52px] shrink-0 rounded-2xl border border-line bg-surface px-5 text-[14px] font-semibold text-ink-soft transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              Join
             </button>
+          </form>
 
-            <div className="flex w-full items-center gap-3 text-xs text-ink-faint">
-              <span className="h-px flex-1 bg-line" />
-              or join one
-              <span className="h-px flex-1 bg-line" />
-            </div>
+          {/* Error / hint */}
+          <p className={`text-center text-[12px] transition-colors ${error ? "text-[var(--danger)]" : "text-ink-faint"}`} style={{ minHeight: "16px" }}>
+            {error ?? "No account needed."}
+          </p>
+        </div>
 
-            <form onSubmit={handleJoin} className="w-full">
-              <div className="flex w-full gap-2">
-                <input
-                  value={joinCode}
-                  onChange={(e) => {
-                    setJoinCode(e.target.value);
-                    setError(null);
-                  }}
-                  aria-label="Room code"
-                  aria-invalid={!!error}
-                  placeholder="f4k2-9xqz"
-                  className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2.5 font-mono text-sm shadow-sm outline-none transition placeholder:text-ink-faint focus:border-accent"
-                />
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-medium shadow-sm transition hover:border-accent hover:text-accent"
-                >
-                  Join
-                </button>
-              </div>
-              <p className={`mt-2 h-4 text-xs ${error ? "text-danger" : "text-ink-faint"}`}>
-                {error ?? "Paste the code from a shared link."}
-              </p>
-            </form>
-
-            {recents.length > 0 && (
-              <div className="w-full text-left">
-                <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">Recent boards</p>
-                <ul className="flex flex-col gap-1.5">
-                  {recents.map((b) => (
-                    <li key={b.roomId}>
-                      <button
-                        onClick={() => router.push(`/board/${encodeURIComponent(b.roomId)}`)}
-                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-left transition hover:border-accent"
-                      >
-                        <span className="truncate font-mono text-xs">{b.roomId}</span>
-                        <span className="shrink-0 text-[11px] text-ink-faint">{relativeTime(b.visitedAt)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+        {/* Recent boards */}
+        {recents.length > 0 && (
+          <div className="animate-rise-in mt-8 w-full" style={{ animationDelay: "0.15s" }}>
+            <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-ink-faint">Recent boards</p>
+            <ul className="flex flex-col divide-y divide-[var(--line)]">
+              {recents.map((b) => (
+                <li key={b.roomId}>
+                  <button
+                    onClick={() => router.push(`/board/${encodeURIComponent(b.roomId)}`)}
+                    className="flex w-full items-center justify-between py-3 text-left transition hover:text-[var(--accent)]"
+                  >
+                    <span className="font-mono text-[13px] text-ink">{b.roomId}</span>
+                    <span className="text-[12px] text-ink-faint">{relativeTime(b.visitedAt)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
+        )}
 
-          <ul className="grid w-full max-w-2xl gap-3 text-left sm:grid-cols-3">
-            {[
-              { t: "Instant sync", d: "Strokes stream point-by-point over WebSockets." },
-              { t: "Nine brushes", d: "Pen, pencil, marker, crayon, watercolour and more." },
-              { t: "Live cursors", d: "See who's drawing where, with their name attached." },
-            ].map((f) => (
-              <li key={f.t} className="rounded-xl border border-line bg-surface p-4 shadow-sm">
-                <p className="text-sm font-semibold">{f.t}</p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-soft">{f.d}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {/* Feature strip — inline stats, no identical card grid (impeccable bans it) */}
+        <div className="animate-rise-in mt-12 flex w-full items-start justify-between gap-4 border-t border-[var(--line)] pt-8" style={{ animationDelay: "0.2s" }}>
+          {[
+            { stat: "9", label: "Brush types", sub: "pen, marker, crayon, oil…" },
+            { stat: "~0ms", label: "Visible lag", sub: "point-by-point WebSockets" },
+            { stat: "∞", label: "Canvas size", sub: "no grid, no limit" },
+          ].map((f) => (
+            <div key={f.stat} className="flex flex-1 flex-col items-center gap-1 text-center">
+              <span className="font-display text-2xl font-semibold text-ink sm:text-3xl">{f.stat}</span>
+              <span className="text-[12px] font-medium text-ink-soft">{f.label}</span>
+              <span className="hidden text-[11px] text-ink-faint sm:block">{f.sub}</span>
+            </div>
+          ))}
+        </div>
+      </main>
 
-        <footer className="flex flex-col items-center gap-1 pb-8 text-center font-mono text-[11px] text-ink-faint">
-          <span>FastAPI WebSockets on the backend · Next.js + HTML5 Canvas on the front</span>
-          <span>In-memory rooms — board history resets if the backend restarts.</span>
-        </footer>
-      </div>
-    </main>
+      {/* Footer */}
+      <footer className="relative z-10 pb-6 text-center font-mono text-[11px] text-ink-faint">
+        FastAPI · Next.js · HTML5 Canvas · In-memory rooms
+      </footer>
+    </div>
   );
 }
 
-function Mark() {
+function LogoMark() {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-sheen text-accent-ink shadow-sm">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+      style={{ background: "var(--accent)" }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
         <path d="M4 18c3-8 6 4 8-2s4 2 8-6" />
       </svg>
     </span>
   );
 }
 
-// Signature element: a few colored strokes that draw themselves in a loop on a
-// small grid, like cursors actively sketching — plain inline SVG, no canvas.
-function LiveStrokePreview() {
-  const paths = [
-    { d: "M10,70 C 40,20 80,110 120,40 S 190,10 220,60", color: "var(--accent)", dur: "2.4s", delay: "0s" },
-    { d: "M20,110 C 60,140 100,90 150,120 S 210,150 230,100", color: "var(--amber)", dur: "2.8s", delay: "0.4s" },
-    { d: "M30,30 C 70,55 110,15 160,40", color: "#22A06B", dur: "2.1s", delay: "0.9s" },
+function StrokePreview() {
+  const strokes = [
+    { d: "M20,80 C60,20 100,120 150,50 S220,10 270,60", color: "var(--accent)", delay: "0s", dur: "2.2s" },
+    { d: "M30,110 C70,140 120,80 170,115 S240,145 280,95", color: "var(--amber)", delay: "0.5s", dur: "2.6s" },
+    { d: "M50,40 C90,65 140,20 195,50 S250,30 290,55", color: "oklch(0.55 0.16 160)", delay: "1s", dur: "2s" },
   ];
   return (
-    <div className="w-full max-w-xs rounded-panel border border-line bg-surface p-2 shadow-md sm:max-w-sm">
-      <svg viewBox="0 0 240 160" className="h-28 w-full text-ink-faint sm:h-36" aria-hidden="true">
-        <defs>
-          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" fill="currentColor" opacity="0.45" />
-          </pattern>
-        </defs>
-        <rect width="240" height="160" rx="10" fill="url(#grid)" />
-        {paths.map((p, i) => (
-          <path
-            key={i}
-            d={p.d}
-            fill="none"
-            stroke={p.color}
-            strokeWidth="4"
-            strokeLinecap="round"
-            className="animate-draw-in"
-            style={{ animationDuration: p.dur, animationDelay: p.delay }}
-          />
-        ))}
-      </svg>
-    </div>
+    <svg viewBox="0 0 320 160" className="h-full w-full" aria-hidden="true">
+      {strokes.map((s, i) => (
+        <path
+          key={i}
+          d={s.d}
+          fill="none"
+          stroke={s.color}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="animate-draw-in"
+          style={{ animationDelay: s.delay, animationDuration: s.dur }}
+        />
+      ))}
+    </svg>
   );
 }
