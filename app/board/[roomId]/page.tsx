@@ -5,63 +5,39 @@ import Canvas, { type CanvasHandle } from "@/components/Canvas";
 import Toolbar from "@/components/Toolbar";
 import PresenceBar from "@/components/PresenceBar";
 import CursorLayer from "@/components/CursorLayer";
-import ThemeToggle from "@/components/ThemeToggle";
 import NameModal from "@/components/NameModal";
 import ShortcutsHelp from "@/components/ShortcutsHelp";
 import Toast from "@/components/Toast";
 import { rememberBoard } from "@/lib/recent";
 import { wsUrlForRoom } from "@/lib/config";
-import type {
-  ClientMessage, CursorState, Point, RemoteUser,
-  ServerMessage, Stroke, Tool,
-} from "@/lib/types";
+import type { ClientMessage, CursorState, Point, RemoteUser, ServerMessage, Stroke, Tool } from "@/lib/types";
 
 const RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000];
 const CURSOR_STALE_MS  = 4000;
 const MAX_UNDO         = 64;
+const NAVBAR_H         = 56; // px — matches PresenceBar h-14
 
 export default function BoardPage() {
   const { roomId } = useParams<{ roomId: string }>();
 
-  const [hasJoined, setHasJoined]   = useState(false);
-  const [name, setName]             = useState("");
-  const [tool, setTool]             = useState<Tool>("pen");
-  const [color, setColor]           = useState("#2454FF");
+  const [hasJoined,  setHasJoined]  = useState(false);
+  const [name,       setName]       = useState("");
+  const [tool,       setTool]       = useState<Tool>("pen");
+  const [color,      setColor]      = useState("#2454FF");
   const [brushWidth, setBrushWidth] = useState(6);
-
-  const [selfId, setSelfId]         = useState("");
-  const [selfColor, setSelfColor]   = useState("#2454FF");
-  const [users, setUsers]           = useState<RemoteUser[]>([]);
-  const [userCount, setUserCount]   = useState(1);
-  const [cursors, setCursors]       = useState<Record<string, CursorState>>({});
+  const [selfId,     setSelfId]     = useState("");
+  const [selfColor,  setSelfColor]  = useState("#2454FF");
+  const [users,      setUsers]      = useState<RemoteUser[]>([]);
+  const [userCount,  setUserCount]  = useState(1);
+  const [cursors,    setCursors]    = useState<Record<string, CursorState>>({});
   const [connStatus, setConnStatus] = useState<"connecting"|"open"|"closed">("connecting");
-  const [showHelp, setShowHelp]     = useState(false);
-  const [toast, setToast]           = useState<string | null>(null);
-  const [headerHidden, setHeaderHidden] = useState(false);
+  const [showHelp,   setShowHelp]   = useState(false);
+  const [toast,      setToast]      = useState<string | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const wake = () => {
-      setHeaderHidden(false);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => setHeaderHidden(true), 2500);
-    };
-    wake();
-    window.addEventListener("mousemove", wake);
-    window.addEventListener("keydown", wake);
-    window.addEventListener("pointerdown", wake);
-    return () => {
-      window.removeEventListener("mousemove", wake);
-      window.removeEventListener("keydown", wake);
-      window.removeEventListener("pointerdown", wake);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
-  }, []);
-
-  const flash = useCallback((message: string) => {
-    setToast(message);
-    setTimeout(() => setToast((m) => (m === message ? null : m)), 1800);
+  const flash = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(m => m === msg ? null : m), 1800);
   }, []);
 
   const undoStackRef = useRef<Stroke[]>([]);
@@ -84,8 +60,7 @@ export default function BoardPage() {
   useEffect(() => { if (roomId) rememberBoard(roomId); }, [roomId]);
 
   const send = useCallback((msg: ClientMessage | { type: "pong" }) => {
-    const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
   }, []);
 
   const handleMsg = useCallback((msg: ServerMessage | { type: "ping" }) => {
@@ -94,21 +69,17 @@ export default function BoardPage() {
       case "init":
         setSelfId(msg.clientId); setSelfColor(msg.color);
         setUsers(msg.users); setUserCount(msg.userCount);
-        canvasRef.current?.redrawAll(msg.strokes);
-        break;
+        canvasRef.current?.redrawAll(msg.strokes); break;
       case "user_joined":
         setUsers(p => [...p.filter(u => u.id !== msg.user.id), msg.user]); break;
       case "user_left":
         setUsers(p => p.filter(u => u.id !== msg.id));
-        setCursors(p => { const n = {...p}; delete n[msg.id]; return n; }); break;
+        setCursors(p => { const n = { ...p }; delete n[msg.id]; return n; }); break;
       case "user_renamed":
-        setUsers(p => p.map(u => u.id === msg.id ? {...u, name: msg.name} : u)); break;
+        setUsers(p => p.map(u => u.id === msg.id ? { ...u, name: msg.name } : u)); break;
       case "user_count": setUserCount(msg.count); break;
       case "stroke_start":
-        canvasRef.current?.applyRemoteStrokeStart({
-          strokeId: msg.strokeId, color: msg.color, width: msg.width,
-          tool: msg.tool, points: [msg.point], authorId: msg.id,
-        }); break;
+        canvasRef.current?.applyRemoteStrokeStart({ strokeId: msg.strokeId, color: msg.color, width: msg.width, tool: msg.tool, points: [msg.point], authorId: msg.id }); break;
       case "stroke_point":
         canvasRef.current?.applyRemoteStrokePoint(msg.strokeId, msg.point); break;
       case "stroke_end":
@@ -116,10 +87,7 @@ export default function BoardPage() {
       case "clear":
         canvasRef.current?.clearCanvas(); flash("Board cleared"); break;
       case "cursor":
-        setCursors(p => ({
-          ...p,
-          [msg.id]: { id: msg.id, x: msg.x, y: msg.y, name: msg.name, color: msg.color, lastSeen: Date.now() },
-        })); break;
+        setCursors(p => ({ ...p, [msg.id]: { id: msg.id, x: msg.x, y: msg.y, name: msg.name, color: msg.color, lastSeen: Date.now() } })); break;
       case "undo": canvasRef.current?.removeStroke(msg.strokeId); break;
       case "redo": canvasRef.current?.addStroke(msg.stroke); break;
     }
@@ -131,21 +99,17 @@ export default function BoardPage() {
     const connect = () => {
       if (deadRef.current) return;
       setConnStatus("connecting");
-      const url = wsUrlForRoom(roomId, nameRef.current);
-      const ws  = new WebSocket(url);
+      const ws = new WebSocket(wsUrlForRoom(roomId, nameRef.current));
       wsRef.current = ws;
-      ws.onopen = () => { retryRef.current = 0; setConnStatus("open"); };
-      ws.onmessage = (e) => {
-        try { handleMsg(JSON.parse(e.data) as ServerMessage | { type: "ping" }); } catch {}
-      };
-      ws.onclose = (ev) => {
+      ws.onopen  = () => { retryRef.current = 0; setConnStatus("open"); };
+      ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch {} };
+      ws.onclose = () => {
         setConnStatus("closed");
         if (deadRef.current) return;
         const delay = RECONNECT_DELAYS[Math.min(retryRef.current++, RECONNECT_DELAYS.length - 1)];
-        console.log(`[ws] closed (code=${ev.code}) — reconnecting in ${delay}ms`);
         timerRef.current = setTimeout(connect, delay);
       };
-      ws.onerror = (ev) => { console.error("[ws] error", ev); ws.close(); };
+      ws.onerror = () => ws.close();
     };
     connect();
     return () => {
@@ -158,11 +122,8 @@ export default function BoardPage() {
   useEffect(() => {
     const t = setInterval(() => {
       setCursors(p => {
-        const now = Date.now();
-        const n: Record<string, CursorState> = {};
-        for (const [id, c] of Object.entries(p)) {
-          if (now - c.lastSeen < CURSOR_STALE_MS) n[id] = c;
-        }
+        const now = Date.now(), n: Record<string, CursorState> = {};
+        for (const [id, c] of Object.entries(p)) if (now - c.lastSeen < CURSOR_STALE_MS) n[id] = c;
         return n;
       });
     }, 1500);
@@ -170,23 +131,21 @@ export default function BoardPage() {
   }, []);
 
   const handleUndo = useCallback(() => {
-    const stroke = undoStackRef.current.pop();
-    if (!stroke) return;
-    redoStackRef.current.push(stroke);
+    const s = undoStackRef.current.pop(); if (!s) return;
+    redoStackRef.current.push(s);
     setUndoLen(undoStackRef.current.length);
     setRedoLen(redoStackRef.current.length);
-    canvasRef.current?.removeStroke(stroke.strokeId);
-    send({ type: "undo", strokeId: stroke.strokeId });
+    canvasRef.current?.removeStroke(s.strokeId);
+    send({ type: "undo", strokeId: s.strokeId });
   }, [send]);
 
   const handleRedo = useCallback(() => {
-    const stroke = redoStackRef.current.pop();
-    if (!stroke) return;
-    undoStackRef.current.push(stroke);
+    const s = redoStackRef.current.pop(); if (!s) return;
+    undoStackRef.current.push(s);
     setUndoLen(undoStackRef.current.length);
     setRedoLen(redoStackRef.current.length);
-    canvasRef.current?.addStroke(stroke);
-    send({ type: "redo", stroke });
+    canvasRef.current?.addStroke(s);
+    send({ type: "redo", stroke: s });
   }, [send]);
 
   const handleClear = useCallback(() => {
@@ -197,16 +156,11 @@ export default function BoardPage() {
     flash("Board cleared");
   }, [send, flash]);
 
-  // Keyboard shortcuts — dep array is stable; [ ] use functional updater so
-  // brushWidth doesn't need to be listed.
   useEffect(() => {
-    const TOOL_KEYS: Record<string, Tool> = {
-      "1": "pen", "2": "pencil", "3": "marker", "4": "calligraphy",
-      "5": "crayon", "6": "oil", "7": "watercolour", "8": "spray",
-    };
+    const TOOL_KEYS: Record<string, Tool> = { "1": "pen", "2": "pencil", "3": "marker", "4": "calligraphy", "5": "crayon", "6": "oil", "7": "watercolour", "8": "spray" };
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const t = e.target as HTMLElement | null;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
       const ctrl = e.ctrlKey || e.metaKey;
       if (ctrl) {
         if (e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
@@ -215,7 +169,7 @@ export default function BoardPage() {
       }
       if (typing || !hasJoined) return;
       if (e.key === "Escape") { setShowHelp(false); return; }
-      if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); return; }
+      if (e.key === "?") { e.preventDefault(); setShowHelp(v => !v); return; }
       if (TOOL_KEYS[e.key]) { setTool(TOOL_KEYS[e.key]); return; }
       if (e.key.toLowerCase() === "e") { setTool("eraser"); return; }
       if (e.key === "[") { setBrushWidth(w => Math.max(1, w - 2)); return; }
@@ -232,42 +186,38 @@ export default function BoardPage() {
   };
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-paper">
-      {!hasJoined && (
-        <NameModal roomId={roomId} defaultName={name || "Guest"} onJoin={handleJoin} />
-      )}
+    /* Full screen — navbar is fixed so canvas fills remaining height */
+    <div className="h-dvh w-full overflow-hidden bg-[var(--paper)]">
+
+      {!hasJoined && <NameModal roomId={roomId} defaultName={name || "Guest"} onJoin={handleJoin} />}
       {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
 
+      {/* Fixed navbar — always visible, never hides */}
+      <PresenceBar
+        roomId={roomId}
+        users={users.filter(u => u.id !== selfId)}
+        selfName={name || "You"}
+        selfColor={selfColor}
+        userCount={userCount}
+        connectionStatus={connStatus}
+        onCopied={() => flash("Board link copied")}
+        onShowShortcuts={() => setShowHelp(true)}
+      />
+
+      {/* Canvas area — offset by navbar height, fills rest */}
       <div
-        className={`shrink-0 overflow-hidden transition-[height] duration-300 ease-out ${headerHidden ? "h-0" : "h-14"}`}
-        onMouseEnter={() => setHeaderHidden(false)}
+        className="absolute inset-x-0 bottom-0"
+        style={{ top: `${NAVBAR_H}px` }}
       >
-        <PresenceBar
-          roomId={roomId}
-          users={users.filter(u => u.id !== selfId)}
-          selfName={name || "You"}
-          selfColor={selfColor}
-          userCount={userCount}
-          connectionStatus={connStatus}
-          onCopied={() => flash("Board link copied")}
-          onShowShortcuts={() => setShowHelp(true)}
-        />
-      </div>
-
-      {headerHidden && (
-        <div
-          className="pointer-events-auto fixed inset-x-0 top-0 z-30 h-2 sm:h-3"
-          onMouseEnter={() => setHeaderHidden(false)}
-        />
-      )}
-
-      <div className="relative min-h-0 flex-1 pb-[130px] sm:pb-0">
-        <div className="absolute inset-0">
+        {/* Mobile: leave space for bottom dock (approx 130px) */}
+        <div className="absolute inset-0 sm:bottom-0 bottom-[130px]">
           <Canvas
             ref={canvasRef}
-            tool={tool} color={color} width={brushWidth}
+            tool={tool}
+            color={color}
+            width={brushWidth}
             disabled={!hasJoined}
-            onStrokeStart={(s) => {
+            onStrokeStart={s => {
               redoStackRef.current = []; setRedoLen(0);
               send({ type: "stroke_start", ...s });
             }}
@@ -283,42 +233,42 @@ export default function BoardPage() {
 
         <CursorLayer cursors={Object.values(cursors)} />
 
-        <div className="pointer-events-none absolute inset-0">
-          <Toolbar
-            tool={tool} setTool={setTool}
-            color={color} setColor={setColor}
-            brushWidth={brushWidth} setBrushWidth={setBrushWidth}
-            onClear={handleClear}
-            onUndo={handleUndo} onRedo={handleRedo}
-            canUndo={undoLen > 0} canRedo={redoLen > 0}
-            collapsed={railCollapsed} onToggleCollapse={() => setRailCollapsed(v => !v)}
-          />
-        </div>
-
+        {/* Reconnect banner */}
         {connStatus !== "open" && (
           <div
             role="status"
-            className={`absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border px-4 py-1.5 font-mono text-xs shadow-md ${
-              connStatus === "closed"
-                ? "border-danger/40 bg-surface text-danger"
-                : "border-line bg-surface text-ink-soft"
-            }`}
+            className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-1.5 font-mono text-xs"
+            style={{ boxShadow: "var(--shadow-md)" }}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${connStatus === "closed" ? "bg-danger" : "bg-amber"} animate-cursor-blink`} />
-            {connStatus === "closed" ? "Reconnecting… your strokes are safe" : "Connecting…"}
+            <span
+              className="h-1.5 w-1.5 rounded-full animate-cursor-blink"
+              style={{ backgroundColor: connStatus === "closed" ? "var(--danger)" : "var(--amber)" }}
+            />
+            <span className={connStatus === "closed" ? "text-[var(--danger)]" : "text-ink-soft"}>
+              {connStatus === "closed" ? "Reconnecting…" : "Connecting…"}
+            </span>
           </div>
         )}
 
-        <div className="pointer-events-auto absolute right-4 top-4 z-30 flex items-center gap-2">
-          <ThemeToggle className="bg-surface" />
-        </div>
-
+        {/* Hint — visible only when alone and canvas is fresh */}
         {hasJoined && userCount === 1 && (
-          <p className="pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 text-center text-xs text-ink-faint sm:block">
-            Start drawing — press <kbd className="rounded border border-line px-1 font-mono">?</kbd> for shortcuts, or share the link to invite someone.
+          <p className="pointer-events-none absolute bottom-4 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-[var(--line)] bg-[var(--surface)]/80 px-4 py-2 font-mono text-[11px] text-ink-faint backdrop-blur-sm sm:block">
+            Start drawing — press <kbd className="mx-0.5 rounded border border-[var(--line)] bg-[var(--surface)] px-1 font-mono text-[10px]">?</kbd> for shortcuts
           </p>
         )}
       </div>
+
+      {/* Toolbar — fixed, starts below navbar */}
+      <Toolbar
+        tool={tool} setTool={setTool}
+        color={color} setColor={setColor}
+        brushWidth={brushWidth} setBrushWidth={setBrushWidth}
+        onClear={handleClear}
+        onUndo={handleUndo} onRedo={handleRedo}
+        canUndo={undoLen > 0} canRedo={redoLen > 0}
+        collapsed={railCollapsed}
+        onToggleCollapse={() => setRailCollapsed(v => !v)}
+      />
 
       <Toast message={toast} />
     </div>
