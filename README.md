@@ -10,12 +10,15 @@
 
 **[🚀 Live Demo](https://whiteboard-frontend-nine-smoky.vercel.app)** · **[Backend Repo](https://github.com/sugumaran-nix/whiteboard-backend)**
 
----
 
-<!-- Replace the line below with your actual demo GIF once recorded -->
-<!-- ![Sketchline Demo](./public/demo.gif) -->
 
 <!--
+---
+
+Replace the line below with your actual demo GIF once recorded
+
+![Sketchline Demo](./public/demo.gif) 
+
 > 📸 **Demo GIF coming soon** — record a 15-second screen capture of multi-user drawing and drop it in `/public/demo.gif`, then uncomment the line above.
 
 -->
