@@ -41,7 +41,8 @@ const SHAPE_IDS = new Set(SHAPES.map(s => s.id));
 const isShape = (t: Tool) => SHAPE_IDS.has(t);
 const isBrush = (t: Tool) => BRUSHES.some(b => b.id === t);
 
-type Panel = "brush" | "shape" | "color" | "fill" | "size" | "opacity" | "text" | null;
+type PanelId = "brush" | "shape" | "color" | "fill" | "size" | "opacity" | "text";
+type Panel = PanelId | null;
 
 interface ToolbarProps {
   tool: Tool; setTool: (t: Tool) => void;
@@ -109,17 +110,16 @@ export default function Toolbar({
 
   const chooseBrush = (id: Tool) => { setTool(id); setPanel(null); };
   const chooseShape = (id: Tool) => { setTool(id); setPanel(null); };
-  const togglePanel = (p: Panel) => setPanel(prev => prev === p ? null : p);
+  const togglePanel = (p: PanelId) => setPanel(prev => prev === p ? null : p);
+
+  if (!mounted) return null;
 
   const isEraser = tool === "eraser";
   const activeBrush = BRUSHES.find(b => b.id === tool) ?? BRUSHES[0];
   const activeShape = SHAPES.find(s => s.id === tool);
 
-  // Which icon to show in the brush button
   const brushButtonIcon = isEraser ? <EraserIcon/> : isBrush(tool) ? activeBrush.icon : <PenIcon/>;
   const brushButtonLabel = isEraser ? "Eraser" : isBrush(tool) ? activeBrush.label : "Pen";
-
-  if (!mounted) return null;
 
   return (
     <>
@@ -149,7 +149,7 @@ export default function Toolbar({
               <Divider/>
 
               {/* Brush picker */}
-              <RailBtn label={brushButtonLabel} active={panel === "brush" || (isBrush(tool) && panel !== "brush") || isEraser}
+              <RailBtn label={brushButtonLabel} active={(panel as Panel) === "brush" || (isBrush(tool) && (panel as Panel) !== "brush") || isEraser}
                 onClick={() => togglePanel("brush")}>
                 <span style={{ color: isEraser ? "var(--ink-soft)" : color }}>{brushButtonIcon}</span>
               </RailBtn>
