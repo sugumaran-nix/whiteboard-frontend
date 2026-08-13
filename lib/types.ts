@@ -7,7 +7,7 @@ export type ShapeTool =
   | "line" | "arrow" | "rect" | "rect-rounded"
   | "ellipse" | "triangle" | "diamond";
 
-export type UtilTool = "text" | "pan";
+export type UtilTool = "text" | "pan" | "select";
 
 export type Tool = DrawTool | ShapeTool | UtilTool;
 
@@ -15,7 +15,7 @@ export interface Point { x: number; y: number; }
 
 export interface TextData {
   text: string;
-  fontSize: number;   // px on virtual canvas
+  fontSize: number;
   bold: boolean;
   italic: boolean;
 }
@@ -23,19 +23,23 @@ export interface TextData {
 export interface Stroke {
   strokeId: string;
   color: string;
-  fillColor?: string;     // shape fill (undefined = outline only)
+  fillColor?: string;
   width: number;
-  opacity: number;        // 0-1
+  opacity: number;
   tool: Tool;
   points: Point[];
   authorId?: string;
-  textData?: TextData;    // only when tool === "text"
-  shapeEnd?: Point;       // only for shape tools
+  textData?: TextData;
+  shapeEnd?: Point;
 }
 
-export interface RemoteUser {
-  id: string; name: string; color: string;
-}
+// Per-tool settings — each tool has fully independent state
+export interface PenSettings    { color: string; width: number; opacity: number; }
+export interface EraserSettings { width: number; }
+export interface ShapeSettings  { color: string; fillColor?: string; width: number; opacity: number; }
+export interface TextSettings   { color: string; fontSize: number; bold: boolean; italic: boolean; opacity: number; }
+
+export interface RemoteUser { id: string; name: string; color: string; }
 
 export interface CursorState extends RemoteUser {
   x: number; y: number; lastSeen: number;
