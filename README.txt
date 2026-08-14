@@ -1,25 +1,26 @@
-SKETCHLINE — v2 UPDATE (5 files)
-=================================
+SKETCHLINE — Production polish (8 files)
+=========================================
 
-Replace these files in your GitHub repo:
+Upload each file to its GitHub path:
 
-  components/Canvas.tsx       → components/Canvas.tsx
-  components/Toolbar.tsx      → components/Toolbar.tsx
-  components/ShortcutsHelp.tsx→ components/ShortcutsHelp.tsx
-  lib/types.ts                → lib/types.ts
-  app/board/ROOMID/page.tsx   → app/board/[roomId]/page.tsx
+  components/Canvas.tsx       →  components/Canvas.tsx
+  components/Toolbar.tsx      →  components/Toolbar.tsx
+  components/Toast.tsx        →  components/Toast.tsx
+  components/CursorLayer.tsx  →  components/CursorLayer.tsx
+  components/NameModal.tsx    →  components/NameModal.tsx
+  app/page.tsx                →  app/page.tsx
+  app/board/ROOMID/page.tsx   →  app/board/[roomId]/page.tsx
+  lib/types.ts                →  lib/types.ts
+
+FIXES
+=====
+1. Blue dot indicator removed — only blue box remains (Toolbar)
+2. Brush/shape/panel list icons now white when active (not blue-on-blue)
+3. Active MobileDockBtn label turns accent colour (was faint/invisible)
+4. NameModal join button & avatar use correct accent background (was broken CSS token)
+5. Dead h-13 Tailwind class removed from landing page button
+6. Unused onZoomChange/onPanChange props removed from Canvas
+7. Toast repositioned above mobile toolbar (was overlapping)
+8. Cursor layer transitions: 75ms + will-change for smoother remote cursors
 
 Build: Next.js 15.5.23 · TypeScript 5.9 · ZERO errors ✅
-
-WHAT'S NEW IN THIS UPDATE
-==========================
-1.  Pinch-to-zoom  — two-finger pinch on mobile zooms in/out
-2.  Touch drawing  — single-finger draw works properly on mobile
-3.  Download PNG   — Ctrl+S or the ↓ PNG button saves the board
-4.  Download button in toolbar (desktop rail + mobile row)
-5.  Updated shortcuts panel — includes all new shortcuts
-6.  Eraser white-paint fix (no transparent holes)
-7.  Shapes: live preview + only commit if you dragged
-8.  All textured tools fully deterministic (same on every redraw)
-9.  Per-tool independent settings (pen/eraser/shape/text never share)
-10. Separate eraser button — never mixed with brush picker

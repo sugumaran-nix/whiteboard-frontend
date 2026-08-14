@@ -157,8 +157,6 @@ interface CanvasProps {
   onStrokePoint: (strokeId: string, point: Point) => void;
   onStrokeEnd: (strokeId: string, stroke: Stroke, shapeEnd?: Point) => void;
   onCursorMove: (point: Point) => void;
-  onZoomChange?: (zoom: number) => void;
-  onPanChange?: (dx: number, dy: number) => void;
   disabled?: boolean;
   onTextPlace?: (point: Point) => void;
 }

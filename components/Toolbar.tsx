@@ -192,9 +192,7 @@ export default function Toolbar({
 
               {/* ── Brush ────────────────────────────────────── */}
               <RailBtn label={activeBrush.label} active={isBrush(tool)||(panel==="brush")} onClick={()=>toggle("brush")}>
-                <span style={{color:isBrush(tool)?activeColor:"var(--ink-soft)"}}>
-                  {isBrush(tool)?<BrushActiveIcon/>:<PenIcon/>}
-                </span>
+                {isBrush(tool)?<BrushActiveIcon/>:<PenIcon/>}
               </RailBtn>
 
               {/* ── Eraser (SEPARATE from brush) ─────────────── */}
@@ -204,9 +202,7 @@ export default function Toolbar({
 
               {/* ── Shapes ───────────────────────────────────── */}
               <RailBtn label={activeShape?.label??"Shapes"} active={isShape(tool)||(panel==="shape")} onClick={()=>toggle("shape")}>
-                <span style={{color:isShape(tool)?shapeSettings.color:"var(--ink-soft)"}}>
-                  {activeShape?.icon??<ShapesIcon/>}
-                </span>
+                {activeShape?.icon??<ShapesIcon/>}
               </RailBtn>
 
               {/* ── Text ─────────────────────────────────────── */}
@@ -297,7 +293,7 @@ export default function Toolbar({
                     <button key={s.id} onClick={()=>selectShape(s.id)}
                       className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[12px] font-medium transition
                         ${tool===s.id?"bg-accent text-white":"hover:bg-surface-2 text-ink"}`}>
-                      <span style={{color:tool===s.id?"white":shapeSettings.color}}>{s.icon}</span>
+                      {s.icon}
                       {s.label}
                     </button>
                   ))}
@@ -518,7 +514,7 @@ export default function Toolbar({
           <button onPointerDown={e=>{e.stopPropagation();toggle("brush");if(!isBrush(tool))setTool(BRUSHES[0].id);}}
             className={`flex flex-1 items-center gap-2 rounded-xl px-2.5 py-2 active:scale-95 transition
               ${isBrush(tool)?"ring-2 ring-accent bg-accent-soft":""}`}>
-            <span style={{color:isBrush(tool)?penSettings.color:"var(--ink-soft)"}}><PenIcon/></span>
+            <PenIcon/>
             <span className="text-[12px] font-semibold text-ink truncate">
               {isBrush(tool)?activeBrush.label:"Brush"}
             </span>
@@ -688,7 +684,7 @@ function RailBtn({ children, label, hint, active=false, disabled=false, onClick 
           :active?"bg-accent text-white shadow-sm"
           :"text-ink-soft hover:bg-surface-2 hover:text-ink"}`}>
       {children}
-      {active&&!disabled&&<span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-surface"/>}
+
       <Tip label={label} hint={hint}/>
     </button>
   );
@@ -760,7 +756,7 @@ function MobileDockBtn({ children, label, active=false, disabled=false, onPointe
           :active?"ring-2 ring-accent bg-accent-soft text-accent"
           :"text-ink-soft"}`}>
       {children}
-      <span className="font-mono text-[7px] leading-none text-ink-faint">{label}</span>
+      <span className={`font-mono text-[7px] leading-none ${active?"text-accent":"text-ink-faint"}`}>{label}</span>
     </button>
   );
 }

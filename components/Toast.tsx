@@ -8,7 +8,7 @@ export default function Toast({ message }: { message: string | null }) {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed bottom-[150px] left-1/2 z-[60] -translate-x-1/2 animate-toast-in rounded-full border border-line bg-surface px-4 py-2 text-xs font-medium text-ink shadow-lg sm:bottom-8"
+      className="pointer-events-none fixed bottom-[160px] left-1/2 z-[60] -translate-x-1/2 animate-toast-in rounded-full border border-line bg-surface px-4 py-2 text-xs font-medium text-ink shadow-lg sm:bottom-8"
     >
       {message}
     </div>

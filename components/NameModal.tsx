@@ -28,7 +28,7 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
         className="w-full max-w-sm animate-pop-in rounded-panel border border-line bg-surface p-6 shadow-lg"
       >
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-sheen font-display text-lg font-semibold text-accent-ink shadow-sm">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-display text-lg font-semibold text-white shadow-sm" style={{background:"var(--accent)"}}>
             {initial}
           </span>
           <div className="min-w-0">
@@ -65,7 +65,7 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
 
         <button
           type="submit"
-          className="mt-5 w-full rounded-lg bg-accent-sheen py-2.5 text-sm font-medium text-accent-ink shadow-glow transition hover:brightness-[1.06] active:scale-[0.99]"
+          className="mt-5 w-full rounded-lg py-2.5 text-sm font-medium text-white transition hover:brightness-[1.06] active:scale-[0.99]" style={{background:"var(--accent)",boxShadow:"var(--shadow-glow)"}}
         >
           Join board
         </button>

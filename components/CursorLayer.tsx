@@ -17,7 +17,7 @@ export default function CursorLayer({ cursors }: CursorLayerProps) {
         return (
           <div
             key={c.id}
-            className="absolute -translate-x-1 -translate-y-1 transition-[left,top,opacity] duration-100 ease-out"
+            className="absolute -translate-x-1 -translate-y-1 transition-[left,top,opacity] duration-75 ease-out will-change-[left,top]"
             style={{ left: `${c.x * 100}%`, top: `${c.y * 100}%`, opacity: idle ? 0.45 : 1 }}
           >
             <svg width="22" height="22" viewBox="0 0 20 20" className="drop-shadow-md">
