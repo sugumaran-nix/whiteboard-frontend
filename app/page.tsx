@@ -87,7 +87,7 @@ export default function Home() {
         <div className="animate-rise-in flex w-full flex-col gap-3" style={{ animationDelay: "0.1s" }}>
           <button
             onClick={handleCreate}
-            className="group relative flex h-13 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl text-[15px] font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+            className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl text-[15px] font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
             style={{
               background: "var(--accent)",
               boxShadow: "var(--shadow-glow)",
