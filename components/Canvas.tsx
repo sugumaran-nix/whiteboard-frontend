@@ -17,6 +17,167 @@ function mkRand(seed: number) {
 }
 function toPW(normW: number) { return normW * ((VIRTUAL_W + VIRTUAL_H) / 2); }
 
+
+// ─── Catmull-Rom smooth stroke renderer ───────────────────────────────────────
+function catmullRomPath(ctx: CanvasRenderingContext2D, pts: {x:number;y:number}[]) {
+  if (pts.length < 2) return;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  if (pts.length === 2) { ctx.lineTo(pts[1].x, pts[1].y); return; }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(i-1, 0)];
+    const p1 = pts[i];
+    const p2 = pts[i+1];
+    const p3 = pts[Math.min(i+2, pts.length-1)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+}
+
+function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
+  if (stroke.points.length < 2) {
+    renderPuff(ctx, stroke, stroke.points[0] ?? {x:0,y:0}, 0); return;
+  }
+  const pw = Math.max(1, toPW(stroke.width));
+  const pts = stroke.points.map(p => ({ x: p.x * VIRTUAL_W, y: p.y * VIRTUAL_H }));
+  ctx.save();
+  ctx.globalAlpha = stroke.opacity ?? 1;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  switch (stroke.tool) {
+    case "pen": {
+      ctx.strokeStyle = stroke.color;
+      // Pressure-sensitive: vary lineWidth per segment using stored pressure
+      const pressures = stroke.points.map((p: Point & { pressure?: number }) => p.pressure ?? 1);
+      if (pressures.every(p => p === 1)) {
+        // No pressure data — uniform width (remote strokes, old strokes)
+        ctx.lineWidth = pw;
+        ctx.beginPath(); catmullRomPath(ctx, pts); ctx.stroke();
+      } else {
+        // Draw segment-by-segment with varying width
+        for (let i = 1; i < pts.length; i++) {
+          const w = pw * (pressures[i-1] * 0.5 + pressures[i] * 0.5);
+          ctx.lineWidth = Math.max(0.5, w);
+          ctx.beginPath();
+          const p0 = pts[Math.max(i-2, 0)], p1 = pts[i-1], p2 = pts[i], p3 = pts[Math.min(i+1, pts.length-1)];
+          ctx.moveTo(p1.x, p1.y);
+          ctx.bezierCurveTo(
+            p1.x + (p2.x-p0.x)/6, p1.y + (p2.y-p0.y)/6,
+            p2.x - (p3.x-p1.x)/6, p2.y - (p3.y-p1.y)/6,
+            p2.x, p2.y
+          );
+          ctx.stroke();
+        }
+      }
+      break;
+    }
+
+    case "pencil": {
+      ctx.strokeStyle = stroke.color; ctx.lineWidth = Math.max(0.5, pw * 0.35);
+      ctx.globalAlpha = (stroke.opacity ?? 1) * 0.85;
+      ctx.beginPath(); catmullRomPath(ctx, pts); ctx.stroke();
+      const rand = mkRand(hashStr(stroke.strokeId) ^ 0xdeadbeef);
+      ctx.fillStyle = stroke.color;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y;
+        const len = Math.sqrt(dx*dx+dy*dy);
+        for (let d = 0; d < len; d += 2.5) {
+          const t = d / len;
+          ctx.globalAlpha = rand() * 0.18 * (stroke.opacity ?? 1);
+          ctx.beginPath();
+          ctx.arc(pts[i].x+dx*t+(rand()-0.5)*pw*0.55, pts[i].y+dy*t+(rand()-0.5)*pw*0.55, rand()*0.6+0.1, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+      break;
+    }
+
+    case "marker":
+      ctx.strokeStyle = stroke.color; ctx.lineWidth = pw * 3.2;
+      ctx.lineCap = "butt"; ctx.lineJoin = "miter";
+      ctx.globalAlpha = (stroke.opacity ?? 1) * 0.22;
+      ctx.beginPath(); catmullRomPath(ctx, pts); ctx.stroke();
+      break;
+
+    case "highlighter":
+      ctx.strokeStyle = stroke.color; ctx.lineWidth = pw * 4;
+      ctx.lineCap = "square"; ctx.lineJoin = "miter";
+      ctx.globalAlpha = (stroke.opacity ?? 1) * 0.35;
+      ctx.globalCompositeOperation = "multiply";
+      ctx.beginPath(); catmullRomPath(ctx, pts); ctx.stroke();
+      break;
+
+    case "calligraphy": {
+      ctx.fillStyle = stroke.color; ctx.globalAlpha = (stroke.opacity ?? 1) * 0.92;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const cdx = pts[i+1].x-pts[i].x, cdy = pts[i+1].y-pts[i].y;
+        const clen = Math.sqrt(cdx*cdx+cdy*cdy), steps = Math.max(1, Math.ceil(clen));
+        for (let s = 0; s <= steps; s++) {
+          const t = s/steps;
+          ctx.beginPath();
+          ctx.ellipse(pts[i].x+cdx*t, pts[i].y+cdy*t, pw*0.85, pw*0.16, Math.PI/4, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+      break;
+    }
+
+    case "crayon": {
+      for (let pass = 0; pass < 5; pass++) {
+        const rand = mkRand(hashStr(stroke.strokeId) ^ (0xcafe + pass * 1000));
+        const ox = (rand()-0.5)*pw*0.55, oy = (rand()-0.5)*pw*0.55;
+        const offPts = pts.map(p => ({ x: p.x+ox, y: p.y+oy }));
+        ctx.strokeStyle = stroke.color; ctx.lineWidth = pw*(0.25+rand()*0.42);
+        ctx.globalAlpha = (stroke.opacity??1)*(0.18+rand()*0.26);
+        ctx.beginPath(); catmullRomPath(ctx, offPts); ctx.stroke();
+      }
+      break;
+    }
+
+    case "oil": {
+      for (let i = 0; i < 11; i++) {
+        const rand = mkRand(hashStr(stroke.strokeId) ^ (0xbabe + i * 997));
+        const t2 = i/10 - 0.5;
+        const offPts = pts.map((p, j) => {
+          const next = pts[Math.min(j+1, pts.length-1)];
+          const dx = next.x-p.x, dy = next.y-p.y, len = Math.sqrt(dx*dx+dy*dy)||1;
+          return { x: p.x + (-dy/len)*t2*pw*0.92, y: p.y + (dx/len)*t2*pw*0.92 };
+        });
+        ctx.strokeStyle = stroke.color; ctx.lineWidth = Math.max(0.5, pw*0.11);
+        ctx.globalAlpha = (stroke.opacity??1)*(0.3+rand()*0.38);
+        ctx.beginPath(); catmullRomPath(ctx, offPts); ctx.stroke();
+      }
+      break;
+    }
+
+    case "watercolour": {
+      for (let pass = 0; pass < 6; pass++) {
+        const rand = mkRand(hashStr(stroke.strokeId) ^ (0xf00d + pass * 777));
+        const ox = (rand()-0.5)*pw*0.55, oy = (rand()-0.5)*pw*0.55;
+        const offPts = pts.map(p => ({ x: p.x+ox, y: p.y+oy }));
+        ctx.strokeStyle = stroke.color; ctx.lineWidth = pw*(0.65+rand()*0.75);
+        ctx.globalAlpha = (stroke.opacity??1)*(0.025+rand()*0.035);
+        ctx.beginPath(); catmullRomPath(ctx, offPts); ctx.stroke();
+      }
+      break;
+    }
+
+    case "eraser": {
+      const smoothEraserBg = document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff";
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = smoothEraserBg; ctx.lineWidth = pw; ctx.globalAlpha = 1;
+      ctx.beginPath(); catmullRomPath(ctx, pts); ctx.stroke();
+      break;
+    }
+
+    default: break;
+  }
+  ctx.restore();
+}
+
 function renderShape(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   const [start] = stroke.points;
   const end = stroke.shapeEnd ?? stroke.points[stroke.points.length - 1];
@@ -106,7 +267,12 @@ function renderSegment(ctx: CanvasRenderingContext2D, stroke: Stroke, from: Poin
       for (let p = 0; p < 6; p++) { const ox = (rand() - 0.5) * pw * 0.55, oy = (rand() - 0.5) * pw * 0.55; ctx.strokeStyle = stroke.color; ctx.lineWidth = pw * (0.65 + rand() * 0.75); ctx.globalAlpha = (stroke.opacity ?? 1) * (0.025 + rand() * 0.035); ctx.beginPath(); ctx.moveTo(fx + ox, fy + oy); ctx.lineTo(tx + ox, ty + oy); ctx.stroke(); }
       break;
     }
-    case "eraser": ctx.globalCompositeOperation = "source-over"; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = pw; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); ctx.stroke(); break;
+    case "eraser": {
+      const eraserBg = document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff";
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = eraserBg; ctx.lineWidth = pw; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); ctx.stroke(); break;
+    }
     case "spray": break;
   }
   ctx.restore();
@@ -121,7 +287,8 @@ function renderPuff(ctx: CanvasRenderingContext2D, stroke: Stroke, point: Point,
     ctx.fillStyle = stroke.color;
     for (let i = 0; i < 30; i++) { const angle = rand() * Math.PI * 2, r = Math.sqrt(rand()) * radius; ctx.globalAlpha = (stroke.opacity ?? 1) * (rand() * 0.45 + 0.08); ctx.beginPath(); ctx.arc(px + Math.cos(angle) * r, py + Math.sin(angle) * r, rand() * 1.5 + 0.2, 0, Math.PI * 2); ctx.fill(); }
   } else if (stroke.tool === "eraser") {
-    ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.globalAlpha = 1;
+    const eraserBg2 = document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff";
+    ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = eraserBg2; ctx.globalAlpha = 1;
     ctx.beginPath(); ctx.arc(px, py, Math.max(0.5, pw / 2), 0, Math.PI * 2); ctx.fill();
   } else if (stroke.tool === "marker") {
     ctx.fillStyle = stroke.color; ctx.globalAlpha = (stroke.opacity ?? 1) * 0.22;
@@ -138,6 +305,7 @@ function renderPuff(ctx: CanvasRenderingContext2D, stroke: Stroke, point: Point,
 
 export interface CanvasHandle {
   redrawAll: (strokes: Stroke[]) => void;
+  getCanvasEl: () => HTMLCanvasElement | null;
   applyRemoteStrokeStart: (stroke: Stroke) => void;
   applyRemoteStrokePoint: (strokeId: string, point: Point) => void;
   applyRemoteStrokeEnd: (strokeId: string, shapeEnd?: Point) => void;
@@ -176,6 +344,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const sprayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPosRef = useRef<Point | null>(null);
   const startPtRef = useRef<Point | null>(null);
+  const lastSpeedRef     = useRef<number>(0);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
@@ -189,12 +358,29 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     if (isShapeTool(stroke.tool)) { renderShape(ctx, stroke); return; }
     if (stroke.tool === "spray") { stroke.points.forEach((pt, i) => renderPuff(ctx, stroke, pt, i)); }
     else if (stroke.points.length === 1) { renderPuff(ctx, stroke, stroke.points[0], 0); }
-    else { for (let i = 1; i < stroke.points.length; i++) renderSegment(ctx, stroke, stroke.points[i - 1], stroke.points[i], hashStr(stroke.strokeId) ^ (i * 1234567)); }
+    else { renderSmoothStroke(ctx, stroke); }
+  }, []);
+
+  const getCanvasBg = useCallback(() => {
+    // Read CSS variable so dark mode canvas matches the UI
+    try {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue("--paper").trim();
+      if (raw) return `oklch(${raw.replace("oklch(","").replace(")","")})`;
+    } catch {}
+    return "#ffffff";
   }, []);
 
   const fillBg = useCallback(() => {
     const ctx = ctxRef.current, c = canvasRef.current; if (!ctx || !c) return;
-    ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H); ctx.restore();
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    // Use CSS variable for paper color so dark mode works
+    const bg = document.documentElement.classList.contains("dark")
+      ? getComputedStyle(document.documentElement).getPropertyValue("--paper-hex").trim() || "#1b1f2e"
+      : "#ffffff";
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H);
+    ctx.restore();
   }, []);
 
   const redrawAll = useCallback((strokes: Stroke[]) => {
@@ -214,8 +400,16 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     fillBg(); redrawAll(historyRef.current);
   }, []); // eslint-disable-line
 
+  // Redraw when dark mode class changes on <html>
+  useEffect(() => {
+    const obs = new MutationObserver(() => redrawAll(historyRef.current));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, [redrawAll]);
+
   useImperativeHandle(ref, () => ({
     redrawAll,
+    getCanvasEl: () => canvasRef.current,
     applyRemoteStrokeStart: (stroke) => {
       activeRef.current.set(stroke.strokeId, { ...stroke, points: [...stroke.points] });
       if (isShapeTool(stroke.tool) || stroke.tool === "text") return;
@@ -279,6 +473,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     lastPosRef.current = point; startPtRef.current = point;
     const strokeId = crypto.randomUUID();
     localIdRef.current = strokeId; pointerActiveRef.current = true;
+    lastSpeedRef.current = 0;
     const normW = width / WIDTH_REF;
     const stroke: Stroke = { strokeId, color: tool === "eraser" ? "#ffffff" : color, fillColor: tool === "eraser" ? undefined : (fillColor || undefined), width: normW, opacity: tool === "eraser" ? 1 : opacity, tool, points: [point] };
     activeRef.current.set(strokeId, stroke);
@@ -318,6 +513,19 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       const ctx = ctxRef.current;
       if (ctx) renderSegment(ctx, stroke, prev, point, hashStr(strokeId) ^ (stroke.points.length * 1234567));
     }
+    // Pressure from speed: fast = thin, slow = thick
+    const now2 = performance.now();
+    const rawSpeed = (() => {
+      const prev2 = stroke.points[stroke.points.length - 1];
+      if (!prev2) return 0;
+      const ddx = (point.x - prev2.x) * VIRTUAL_W;
+      const ddy = (point.y - prev2.y) * VIRTUAL_H;
+      return Math.sqrt(ddx*ddx + ddy*ddy);
+    })();
+    // Smooth speed with exponential moving average
+    lastSpeedRef.current = lastSpeedRef.current * 0.6 + rawSpeed * 0.4;
+    const pressure = Math.max(0.35, Math.min(1.0, 1.0 - lastSpeedRef.current / 120));
+    (point as Point & { pressure?: number }).pressure = pressure;
     stroke.points.push(point); onStrokePoint(strokeId, point);
   };
 
@@ -408,6 +616,19 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       const ctx = ctxRef.current;
       if (ctx) renderSegment(ctx, stroke, prev, point, hashStr(strokeId) ^ (stroke.points.length * 1234567));
     }
+    // Pressure from speed: fast = thin, slow = thick
+    const now2 = performance.now();
+    const rawSpeed = (() => {
+      const prev2 = stroke.points[stroke.points.length - 1];
+      if (!prev2) return 0;
+      const ddx = (point.x - prev2.x) * VIRTUAL_W;
+      const ddy = (point.y - prev2.y) * VIRTUAL_H;
+      return Math.sqrt(ddx*ddx + ddy*ddy);
+    })();
+    // Smooth speed with exponential moving average
+    lastSpeedRef.current = lastSpeedRef.current * 0.6 + rawSpeed * 0.4;
+    const pressure = Math.max(0.35, Math.min(1.0, 1.0 - lastSpeedRef.current / 120));
+    (point as Point & { pressure?: number }).pressure = pressure;
     stroke.points.push(point); onStrokePoint(strokeId, point);
   };
 
@@ -457,3 +678,4 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 });
 
 export default Canvas;
+

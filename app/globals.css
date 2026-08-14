@@ -6,6 +6,7 @@
 :root {
   /* Backgrounds — clean white, no warm tint (impeccable: ban the cream/sand AI default) */
   --paper:     oklch(0.99 0 0);
+  --paper-hex: #fcfcfe;
   --surface:   oklch(1 0 0);
   --surface-2: oklch(0.96 0.004 264);
 
@@ -45,6 +46,7 @@
 .dark {
   /* Blueprint dark — deep navy with clear brand tint */
   --paper:     oklch(0.13 0.018 264);
+  --paper-hex: #1b1f2e;
   --surface:   oklch(0.17 0.018 264);
   --surface-2: oklch(0.21 0.018 264);
   --glass:     rgba(23, 27, 46, 0.88);

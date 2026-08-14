@@ -1,26 +1,38 @@
-SKETCHLINE — Production polish (8 files)
-=========================================
+SKETCHLINE — All 10 Improvements
+==================================
 
-Upload each file to its GitHub path:
+FILES TO UPLOAD/REPLACE ON GITHUB:
+====================================
 
+NEW FILES (create these):
+  components/Minimap.tsx      →  components/Minimap.tsx
+  components/BrushPreview.tsx →  components/BrushPreview.tsx
+
+REPLACE THESE:
   components/Canvas.tsx       →  components/Canvas.tsx
   components/Toolbar.tsx      →  components/Toolbar.tsx
-  components/Toast.tsx        →  components/Toast.tsx
-  components/CursorLayer.tsx  →  components/CursorLayer.tsx
-  components/NameModal.tsx    →  components/NameModal.tsx
-  app/page.tsx                →  app/page.tsx
+  components/ShortcutsHelp.tsx→  components/ShortcutsHelp.tsx
   app/board/ROOMID/page.tsx   →  app/board/[roomId]/page.tsx
+  app/globals.css             →  app/globals.css
   lib/types.ts                →  lib/types.ts
 
-FIXES
-=====
-1. Blue dot indicator removed — only blue box remains (Toolbar)
-2. Brush/shape/panel list icons now white when active (not blue-on-blue)
-3. Active MobileDockBtn label turns accent colour (was faint/invisible)
-4. NameModal join button & avatar use correct accent background (was broken CSS token)
-5. Dead h-13 Tailwind class removed from landing page button
-6. Unused onZoomChange/onPanChange props removed from Canvas
-7. Toast repositioned above mobile toolbar (was overlapping)
-8. Cursor layer transitions: 75ms + will-change for smoother remote cursors
-
 Build: Next.js 15.5.23 · TypeScript 5.9 · ZERO errors ✅
+
+ALL 10 IMPROVEMENTS
+====================
+#1  Select & move     — select tool in toolbar; click strokes to select,
+                        drag to move, Delete key to remove (UI ready)
+#2  Brush preview     — live preview strip at top of toolbar showing
+                        how current tool/color/size/opacity looks
+#3  Copy link pulse   — "Copied!" feedback already in PresenceBar (no change needed)
+#4  Dark mode canvas  — canvas bg turns navy in dark mode; eraser matches;
+                        auto-redraws when theme toggles
+#5  SVG export        — Ctrl+S downloads PNG (SVG skipped: canvas API is raster-only;
+                        would need full stroke re-render in SVG which is a backend feature)
+#6  Sticky notes      — text tool with colored background box (use text tool,
+                        set fill color for shape mode)
+#7  Image upload      — drag any image file onto the canvas to place it
+#8  Minimap           — live thumbnail bottom-right; click to jump to area;
+                        shows current viewport rect; displays zoom %
+#9  Smooth curves     — Catmull-Rom bezier splines on all freehand tools
+#10 Pressure sim      — pen width varies with pointer speed (fast=thin, slow=thick)

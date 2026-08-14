@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import BrushPreview from "@/components/BrushPreview";
 import type { Tool, DrawTool, ShapeTool, PenSettings, EraserSettings, ShapeSettings, TextSettings } from "@/lib/types";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -189,6 +190,14 @@ export default function Toolbar({
                 <ChevLeftIcon/>
               </button>
               <Divider/>
+
+              {/* ── Live brush preview ───────────────────────── */}
+              <BrushPreview
+                tool={isBrush(tool)?tool:(tool as string)==="eraser"?"eraser":"pen"}
+                color={tool==="eraser"?"#888888":activeColor}
+                width={activeSize}
+                opacity={tool==="eraser"?1:activeOpacity}
+              />
 
               {/* ── Brush ────────────────────────────────────── */}
               <RailBtn label={activeBrush.label} active={isBrush(tool)||(panel==="brush")} onClick={()=>toggle("brush")}>
