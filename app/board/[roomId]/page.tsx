@@ -8,6 +8,7 @@ import CursorLayer from "@/components/CursorLayer";
 import NameModal from "@/components/NameModal";
 import ShortcutsHelp from "@/components/ShortcutsHelp";
 import Toast from "@/components/Toast";
+import Minimap from "@/components/Minimap";
 import { rememberBoard } from "@/lib/recent";
 import { wsUrlForRoom } from "@/lib/config";
 import type {
@@ -76,6 +77,7 @@ export default function BoardPage() {
   const [redoLen, setRedoLen] = useState(0);
 
   const canvasRef = useRef<CanvasHandle|null>(null);
+  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement|null>(null);
   const wsRef     = useRef<WebSocket|null>(null);
   const retryRef  = useRef(0);
   const timerRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -84,6 +86,15 @@ export default function BoardPage() {
   useEffect(() => { nameRef.current = name; }, [name]);
 
   useEffect(() => { if (roomId) rememberBoard(roomId); }, [roomId]);
+
+  // Get raw canvas element for minimap
+  useEffect(() => {
+    const id = setInterval(() => {
+      const el = canvasRef.current?.getCanvasEl();
+      if (el) { setCanvasEl(el); clearInterval(id); }
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
 
   const send = useCallback((msg: ClientMessage | { type: "pong" }) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
@@ -244,12 +255,49 @@ export default function BoardPage() {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        setZoom(z => Math.min(4, Math.max(0.25, z - e.deltaY * 0.001)));
+        // Clamp delta to avoid over-zooming on trackpad
+        const delta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 50);
+        setZoom(z => Math.min(4, Math.max(0.25, z - delta * 0.001)));
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  // #7 Image upload — drag image onto canvas
+  const handleImageDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
+    if (!file || !scrollRef.current) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current?.getCanvasEl(); if (!canvas) return;
+        const ctx = canvas.getContext("2d"); if (!ctx) return;
+        // Place at drop position
+        const scroll = scrollRef.current!;
+        const r = canvas.getBoundingClientRect();
+        const nx = (e.clientX - r.left) / r.width;
+        const ny = (e.clientY - r.top)  / r.height;
+        const maxW = 0.4, maxH = 0.4;
+        const aspect = img.width / img.height;
+        let w = maxW, h = maxW / aspect;
+        if (h > maxH) { h = maxH; w = maxH * aspect; }
+        const px = Math.max(0, Math.min(1-w, nx - w/2));
+        const py = Math.max(0, Math.min(1-h, ny - h/2));
+        ctx.drawImage(img, px*VIRTUAL_W, py*VIRTUAL_H, w*VIRTUAL_W, h*VIRTUAL_H);
+        flash("Image placed");
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  }, [flash]);
+
+  const handleStrokePoint = useCallback((strokeId: string, point: Point) => {
+    send({ type: "stroke_point", strokeId, point });
+  }, [send]);
 
   const handleJoin = (chosen: string) => {
     const n = chosen || "Guest";
@@ -316,10 +364,12 @@ export default function BoardPage() {
 
       {/* Scrollable canvas area */}
       <div ref={scrollRef}
+        onDragOver={e => e.preventDefault()}
+        onDrop={handleImageDrop}
         className="absolute inset-x-0 bottom-0 overflow-auto"
-        style={{ top: `${NAVBAR_H}px`, paddingBottom: "134px" }}>
+        style={{ top: `${NAVBAR_H}px`, paddingBottom: "max(134px, calc(120px + env(safe-area-inset-bottom, 0px)))" }}>
         <div style={{ width: VIRTUAL_W * zoom, height: VIRTUAL_H * zoom, position: "relative" }}>
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: VIRTUAL_W, height: VIRTUAL_H }}>
+          <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: VIRTUAL_W, height: VIRTUAL_H, willChange: "transform" }}>
             <Canvas
               ref={canvasRef}
               tool={tool}
@@ -335,7 +385,7 @@ export default function BoardPage() {
                 redoStackRef.current = []; setRedoLen(0);
                 send({ type: "stroke_start", ...s });
               }}
-              onStrokePoint={(strokeId, point) => send({ type: "stroke_point", strokeId, point })}
+              onStrokePoint={handleStrokePoint}
               onStrokeEnd={(strokeId, stroke, shapeEnd) => {
                 undoStackRef.current = [...undoStackRef.current, stroke].slice(-MAX_UNDO);
                 setUndoLen(undoStackRef.current.length);
@@ -391,11 +441,7 @@ export default function BoardPage() {
         </div>
       )}
 
-      {/* Zoom indicator */}
-      <div className="fixed bottom-4 right-3 z-30 hidden rounded-xl border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px] text-ink-faint sm:block"
-        style={{ boxShadow: "var(--shadow-sm)" }}>
-        {Math.round(zoom * 100)}%
-      </div>
+      {/* Zoom % now shown in Minimap */}
 
       {/* Download button (desktop, bottom-right) */}
       <button onClick={handleDownload} title="Download as PNG (Ctrl+S)"
@@ -416,6 +462,9 @@ export default function BoardPage() {
           <kbd className="mx-0.5 rounded border border-line bg-surface px-1 font-mono text-[10px]">?</kbd> for shortcuts
         </p>
       )}
+
+      {/* #8 Minimap */}
+      <Minimap canvasEl={canvasEl} scrollRef={scrollRef} zoom={zoom}/>
 
       <Toolbar
         tool={tool} setTool={setTool}
