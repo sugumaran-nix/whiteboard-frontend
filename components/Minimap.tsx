@@ -1,39 +1,42 @@
 "use client";
-// #8 — Minimap: thumbnail of full canvas showing current viewport
 import { useEffect, useRef } from "react";
+import type React from "react";
 import { VIRTUAL_W, VIRTUAL_H } from "@/components/Canvas";
 
 interface MinimapProps {
   canvasEl: HTMLCanvasElement | null;
-  scrollEl: HTMLDivElement | null;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
 }
 
 const MM_W = 160;
 const MM_H = Math.round(MM_W * VIRTUAL_H / VIRTUAL_W);
 
-export default function Minimap({ canvasEl, scrollEl, zoom }: MinimapProps) {
-  const mmRef = useRef<HTMLCanvasElement>(null);
+export default function Minimap({ canvasEl, scrollRef, zoom }: MinimapProps) {
+  const mmRef  = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    // Throttle minimap to 8fps max — sufficient for a thumbnail, saves mobile GPU
     let lastDraw = 0;
     const draw = (ts: number) => {
-      if (ts - lastDraw >= 125) { // 8fps
-        const mm = mmRef.current; if (mm && canvasEl && scrollEl) {
-          const ctx = mm.getContext("2d"); if (ctx) {
+      if (ts - lastDraw >= 125) {
+        const scrollEl = scrollRef.current;
+        const mm = mmRef.current;
+        if (mm && canvasEl && scrollEl) {
+          const ctx = mm.getContext("2d");
+          if (ctx) {
             ctx.clearRect(0, 0, MM_W, MM_H);
             ctx.drawImage(canvasEl, 0, 0, MM_W, MM_H);
-            const vw = scrollEl.clientWidth  / (VIRTUAL_W * zoom);
-            const vh = scrollEl.clientHeight / (VIRTUAL_H * zoom);
-            const vx = scrollEl.scrollLeft   / (VIRTUAL_W * zoom);
-            const vy = scrollEl.scrollTop    / (VIRTUAL_H * zoom);
-            ctx.strokeStyle = "#6b83f0";
+            const vw = Math.min(1, scrollEl.clientWidth  / (VIRTUAL_W * zoom));
+            const vh = Math.min(1, scrollEl.clientHeight / (VIRTUAL_H * zoom));
+            const vx = scrollEl.scrollLeft / (VIRTUAL_W * zoom);
+            const vy = scrollEl.scrollTop  / (VIRTUAL_H * zoom);
+            const isDark = document.documentElement.classList.contains("dark");
+            ctx.strokeStyle = isDark ? "#7b93ff" : "#2454ff";
             ctx.lineWidth = 1.5;
-            ctx.strokeRect(vx * MM_W, vy * MM_H, Math.min(vw,1) * MM_W, Math.min(vh,1) * MM_H);
+            ctx.strokeRect(vx * MM_W, vy * MM_H, vw * MM_W, vh * MM_H);
             ctx.fillStyle = "rgba(100,120,240,0.10)";
-            ctx.fillRect(vx * MM_W, vy * MM_H, Math.min(vw,1) * MM_W, Math.min(vh,1) * MM_H);
+            ctx.fillRect(vx * MM_W, vy * MM_H, vw * MM_W, vh * MM_H);
           }
         }
         lastDraw = ts;
@@ -42,9 +45,10 @@ export default function Minimap({ canvasEl, scrollEl, zoom }: MinimapProps) {
     };
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [canvasEl, scrollEl, zoom]);
+  }, [canvasEl, scrollRef, zoom]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const scrollEl = scrollRef.current;
     if (!scrollEl) return;
     const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
     const nx = (e.clientX - r.left) / MM_W;
@@ -57,8 +61,8 @@ export default function Minimap({ canvasEl, scrollEl, zoom }: MinimapProps) {
   };
 
   return (
-    <div className="fixed bottom-4 right-3 z-30 hidden overflow-hidden rounded-xl border border-line bg-surface shadow-md sm:block"
-      style={{ boxShadow: "var(--shadow-md)", width: MM_W, marginBottom: 48 }}>
+    <div className="fixed bottom-16 right-3 z-30 hidden overflow-hidden rounded-xl border border-line bg-surface shadow-md sm:block"
+      style={{ boxShadow: "var(--shadow-md)", width: MM_W }}>
       <canvas ref={mmRef} width={MM_W} height={MM_H}
         onClick={handleClick}
         className="block cursor-crosshair"

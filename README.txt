@@ -1,38 +1,45 @@
-SKETCHLINE — Performance Update (mobile lag + capacity fix)
-============================================================
+SKETCHLINE — Audit Fixes
+=========================
 
-REPLACE THESE ON GITHUB:
-  components/Canvas.tsx      →  components/Canvas.tsx
-  components/Minimap.tsx     →  components/Minimap.tsx
-  app/board/ROOMID/page.tsx  →  app/board/[roomId]/page.tsx
+REPLACE ON GITHUB:
+  components/Canvas.tsx       →  components/Canvas.tsx
+  components/Minimap.tsx      →  components/Minimap.tsx
+  components/BrushPreview.tsx →  components/BrushPreview.tsx
+  app/board/ROOMID/page.tsx   →  app/board/[roomId]/page.tsx
 
-WHAT WAS CAUSING LAG
-=====================
-1. Minimap ran at 60fps RAF loop redrawing 4000×3000 canvas every frame
-   → Fixed: throttled to 8fps (125ms interval). Invisible difference visually.
+Build: Zero TS errors ✅  Zero build errors ✅
 
-2. Every remote stroke point triggered full canvas redraw (redrawAll)
-   → Fixed: RAF-batched remote points — multiple points rendered in one frame
+WHAT WAS FIXED
+==============
+CRITICAL
+  1. require() inside useCallback — illegal in Next.js ESM
+     → Removed; VIRTUAL_W/H already imported at file top
 
-3. Stroke point threshold was 1.5 virtual px — sending ~60 WS messages/sec
-   → Fixed: raised to 4px — cuts messages by ~60% with no visible quality loss
+  2. useCallback as inline JSX prop — React Rules of Hooks violation
+     → Moved to top-level handleStrokePoint callback
 
-4. Cursor updates every 50ms (20/sec per user)
-   → Fixed: 100ms (10/sec) — still smooth, half the WS traffic
+  3. _pendingPoints/_rafPending as module globals — shared across
+     all Canvas instances (multi-tab corruption)
+     → Moved into component as useRef (instance-local)
 
-5. Shape preview called full redrawAll on every remote cursor move
-   → Fixed: skip redraw if shape end moved < 3px
+MINOR
+  4. Minimap used var(--accent) in canvas ctx — CSS vars don't work
+     in canvas 2D API, renders transparent
+     → Replaced with hardcoded hex (#2454ff / #7b93ff dark)
 
-6. Wheel zoom fired setZoom on every scroll tick — causing rapid re-renders
-   → Fixed: delta clamped to 50px max, prevents trackpad over-firing
+  5. Minimap received scrollRef.current (stale on first render)
+     → Now receives the ref object itself, reads .current each frame
 
-7. Canvas container missing will-change: transform for mobile GPU
-   → Fixed: added will-change on the zoom wrapper div
+  6. getCanvasBg() defined but never called — dead code removed
 
-CAPACITY (simultaneous users)
-==============================
-Before fixes:  ~3-5 users before noticeable lag
-After fixes:   ~10-15 users comfortably (frontend limit)
-Real limit:    Your backend WebSocket server capacity
+  7. Dark mode class checked 4× separately — unified into canvasBg()
+     helper function at module level
 
-Build: Next.js 15.5.23 · TypeScript 5.9 · ZERO errors ✅
+  8. BrushPreview used Math.random() — non-deterministic preview
+     → Replaced with deterministic sin/cos values
+
+  9. BrushPreview resized canvas on every render — flicker
+     → Only resizes if dimensions changed
+
+  10. Mobile safe-area: paddingBottom 134px hardcoded
+      → Uses max(134px, 120px + safe-area-inset-bottom)

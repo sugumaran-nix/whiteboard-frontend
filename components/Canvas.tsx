@@ -16,6 +16,7 @@ function mkRand(seed: number) {
   return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 0x100000000; };
 }
 function toPW(normW: number) { return normW * ((VIRTUAL_W + VIRTUAL_H) / 2); }
+function canvasBg() { return document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff"; }
 
 
 // ─── Catmull-Rom smooth stroke renderer ───────────────────────────────────────
@@ -166,7 +167,7 @@ function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     }
 
     case "eraser": {
-      const smoothEraserBg = document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff";
+      const smoothEraserBg = canvasBg();
       ctx.globalCompositeOperation = "source-over";
       ctx.strokeStyle = smoothEraserBg; ctx.lineWidth = pw; ctx.globalAlpha = 1;
       ctx.beginPath(); catmullRomPath(ctx, pts); ctx.stroke();
@@ -268,7 +269,7 @@ function renderSegment(ctx: CanvasRenderingContext2D, stroke: Stroke, from: Poin
       break;
     }
     case "eraser": {
-      const eraserBg = document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff";
+      const eraserBg = canvasBg();
       ctx.globalCompositeOperation = "source-over";
       ctx.strokeStyle = eraserBg; ctx.lineWidth = pw; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.globalAlpha = 1;
       ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); ctx.stroke(); break;
@@ -287,7 +288,7 @@ function renderPuff(ctx: CanvasRenderingContext2D, stroke: Stroke, point: Point,
     ctx.fillStyle = stroke.color;
     for (let i = 0; i < 30; i++) { const angle = rand() * Math.PI * 2, r = Math.sqrt(rand()) * radius; ctx.globalAlpha = (stroke.opacity ?? 1) * (rand() * 0.45 + 0.08); ctx.beginPath(); ctx.arc(px + Math.cos(angle) * r, py + Math.sin(angle) * r, rand() * 1.5 + 0.2, 0, Math.PI * 2); ctx.fill(); }
   } else if (stroke.tool === "eraser") {
-    const eraserBg2 = document.documentElement.classList.contains("dark") ? "#1b1f2e" : "#ffffff";
+    const eraserBg2 = canvasBg();
     ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = eraserBg2; ctx.globalAlpha = 1;
     ctx.beginPath(); ctx.arc(px, py, Math.max(0.5, pw / 2), 0, Math.PI * 2); ctx.fill();
   } else if (stroke.tool === "marker") {
@@ -302,10 +303,6 @@ function renderPuff(ctx: CanvasRenderingContext2D, stroke: Stroke, point: Point,
   }
   ctx.restore();
 }
-
-// RAF-batched remote point queue for performance
-let _pendingPoints: Array<{strokeId: string; point: Point}> = [];
-let _rafPending = false;
 
 export interface CanvasHandle {
   redrawAll: (strokes: Stroke[]) => void;
@@ -349,6 +346,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const lastPosRef = useRef<Point | null>(null);
   const startPtRef = useRef<Point | null>(null);
   const lastSpeedRef     = useRef<number>(0);
+  const pendingPointsRef  = useRef<Array<{strokeId: string; point: Point}>>([]);
+  const rafPendingRef     = useRef(false);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
@@ -365,23 +364,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     else { renderSmoothStroke(ctx, stroke); }
   }, []);
 
-  const getCanvasBg = useCallback(() => {
-    // Read CSS variable so dark mode canvas matches the UI
-    try {
-      const raw = getComputedStyle(document.documentElement).getPropertyValue("--paper").trim();
-      if (raw) return `oklch(${raw.replace("oklch(","").replace(")","")})`;
-    } catch {}
-    return "#ffffff";
-  }, []);
-
   const fillBg = useCallback(() => {
     const ctx = ctxRef.current, c = canvasRef.current; if (!ctx || !c) return;
     ctx.save();
     ctx.globalCompositeOperation = "source-over";
     // Use CSS variable for paper color so dark mode works
-    const bg = document.documentElement.classList.contains("dark")
-      ? getComputedStyle(document.documentElement).getPropertyValue("--paper-hex").trim() || "#1b1f2e"
-      : "#ffffff";
+    const bg = canvasBg();
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H);
     ctx.restore();
@@ -431,13 +419,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         redrawAll(historyRef.current); const ctx = ctxRef.current; if (ctx) renderShape(ctx, { ...stroke, shapeEnd: point }); return;
       }
       // Batch remote points via RAF — renders many points in one frame
-      _pendingPoints.push({ strokeId, point });
-      if (!_rafPending) {
-        _rafPending = true;
+      pendingPointsRef.current.push({ strokeId, point });
+      if (!rafPendingRef.current) {
+        rafPendingRef.current = true;
         requestAnimationFrame(() => {
-          _rafPending = false;
+          rafPendingRef.current = false;
           const ctx = ctxRef.current; if (!ctx) return;
-          for (const { strokeId: sid, point: pt } of _pendingPoints) {
+          for (const { strokeId: sid, point: pt } of pendingPointsRef.current) {
             const s = activeRef.current.get(sid); if (!s) continue;
             if (isShapeTool(s.tool)) continue;
             const idx = s.points.length;
@@ -445,7 +433,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
             else { const prev = s.points[idx-1]; if (prev) renderSegment(ctx, s, prev, pt, hashStr(s.strokeId)^(idx*1234567)); }
             s.points.push(pt);
           }
-          _pendingPoints = [];
+          pendingPointsRef.current = [];
         });
       }
     },

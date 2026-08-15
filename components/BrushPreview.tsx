@@ -133,10 +133,13 @@ export default function BrushPreview({ tool, color, width, opacity }: BrushPrevi
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext("2d"); if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = PREVIEW_W * dpr; canvas.height = PREVIEW_H * dpr;
-    canvas.style.width = PREVIEW_W + "px"; canvas.style.height = PREVIEW_H + "px";
+    // Only resize if needed — avoids flicker on re-renders
+    if (canvas.width !== PREVIEW_W * dpr) {
+      canvas.width = PREVIEW_W * dpr; canvas.height = PREVIEW_H * dpr;
+      canvas.style.width = PREVIEW_W + "px"; canvas.style.height = PREVIEW_H + "px";
+    }
+    const ctx = canvas.getContext("2d"); if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const isDark = document.documentElement.classList.contains("dark");
     drawPreview(ctx, tool, color, width, opacity, isDark);
