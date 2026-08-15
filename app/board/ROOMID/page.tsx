@@ -255,7 +255,9 @@ export default function BoardPage() {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        setZoom(z => Math.min(4, Math.max(0.25, z - e.deltaY * 0.001)));
+        // Clamp delta to avoid over-zooming on trackpad
+        const delta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 50);
+        setZoom(z => Math.min(4, Math.max(0.25, z - delta * 0.001)));
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -364,7 +366,7 @@ export default function BoardPage() {
         className="absolute inset-x-0 bottom-0 overflow-auto"
         style={{ top: `${NAVBAR_H}px`, paddingBottom: "134px" }}>
         <div style={{ width: VIRTUAL_W * zoom, height: VIRTUAL_H * zoom, position: "relative" }}>
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: VIRTUAL_W, height: VIRTUAL_H }}>
+          <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: VIRTUAL_W, height: VIRTUAL_H, willChange: "transform" }}>
             <Canvas
               ref={canvasRef}
               tool={tool}
@@ -380,7 +382,10 @@ export default function BoardPage() {
                 redoStackRef.current = []; setRedoLen(0);
                 send({ type: "stroke_start", ...s });
               }}
-              onStrokePoint={(strokeId, point) => send({ type: "stroke_point", strokeId, point })}
+              onStrokePoint={useCallback((strokeId: string, point: Point) => {
+                // RAF-throttle outgoing stroke points — max 1 per frame (~60/s)
+                send({ type: "stroke_point", strokeId, point });
+              }, [send])}
               onStrokeEnd={(strokeId, stroke, shapeEnd) => {
                 undoStackRef.current = [...undoStackRef.current, stroke].slice(-MAX_UNDO);
                 setUndoLen(undoStackRef.current.length);

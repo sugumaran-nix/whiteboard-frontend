@@ -303,6 +303,10 @@ function renderPuff(ctx: CanvasRenderingContext2D, stroke: Stroke, point: Point,
   ctx.restore();
 }
 
+// RAF-batched remote point queue for performance
+let _pendingPoints: Array<{strokeId: string; point: Point}> = [];
+let _rafPending = false;
+
 export interface CanvasHandle {
   redrawAll: (strokes: Stroke[]) => void;
   getCanvasEl: () => HTMLCanvasElement | null;
@@ -418,14 +422,32 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     applyRemoteStrokePoint: (strokeId, point) => {
       const stroke = activeRef.current.get(strokeId); if (!stroke) return;
       if (isShapeTool(stroke.tool)) {
+        const prev2 = stroke.shapeEnd;
+        if (prev2) {
+          const dx2=(point.x-prev2.x)*VIRTUAL_W, dy2=(point.y-prev2.y)*VIRTUAL_H;
+          if (dx2*dx2+dy2*dy2 < 9) return;
+        }
         activeRef.current.set(strokeId, { ...stroke, shapeEnd: point });
         redrawAll(historyRef.current); const ctx = ctxRef.current; if (ctx) renderShape(ctx, { ...stroke, shapeEnd: point }); return;
       }
-      const ctx = ctxRef.current; if (!ctx) return;
-      const idx = stroke.points.length;
-      if (stroke.tool === "spray") renderPuff(ctx, stroke, point, idx);
-      else { const prev = stroke.points[idx - 1]; if (prev) renderSegment(ctx, stroke, prev, point, hashStr(stroke.strokeId) ^ (idx * 1234567)); }
-      stroke.points.push(point);
+      // Batch remote points via RAF — renders many points in one frame
+      _pendingPoints.push({ strokeId, point });
+      if (!_rafPending) {
+        _rafPending = true;
+        requestAnimationFrame(() => {
+          _rafPending = false;
+          const ctx = ctxRef.current; if (!ctx) return;
+          for (const { strokeId: sid, point: pt } of _pendingPoints) {
+            const s = activeRef.current.get(sid); if (!s) continue;
+            if (isShapeTool(s.tool)) continue;
+            const idx = s.points.length;
+            if (s.tool === "spray") renderPuff(ctx, s, pt, idx);
+            else { const prev = s.points[idx-1]; if (prev) renderSegment(ctx, s, prev, pt, hashStr(s.strokeId)^(idx*1234567)); }
+            s.points.push(pt);
+          }
+          _pendingPoints = [];
+        });
+      }
     },
     applyRemoteStrokeEnd: (strokeId, shapeEnd) => {
       const stroke = activeRef.current.get(strokeId);
@@ -494,7 +516,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const raw = toNorm(e.clientX, e.clientY);
     lastPosRef.current = raw;
     const now = performance.now();
-    if (now - lastCursorRef.current >= 50) { lastCursorRef.current = now; onCursorMove(raw); }
+    if (now - lastCursorRef.current >= 100) { lastCursorRef.current = now; onCursorMove(raw); }
     if (!pointerActiveRef.current || disabled || tool === "pan" || tool === "text" || tool === "select") return;
     const strokeId = localIdRef.current; if (!strokeId) return;
     const stroke = activeRef.current.get(strokeId); if (!stroke) return;

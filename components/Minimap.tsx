@@ -17,25 +17,30 @@ export default function Minimap({ canvasEl, scrollEl, zoom }: MinimapProps) {
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    const draw = () => {
-      const mm = mmRef.current; if (!mm || !canvasEl || !scrollEl) return;
-      const ctx = mm.getContext("2d"); if (!ctx) return;
-      ctx.clearRect(0, 0, MM_W, MM_H);
-      // Draw scaled canvas
-      ctx.drawImage(canvasEl, 0, 0, MM_W, MM_H);
-      // Draw viewport rect
-      const vw = scrollEl.clientWidth  / (VIRTUAL_W * zoom);
-      const vh = scrollEl.clientHeight / (VIRTUAL_H * zoom);
-      const vx = scrollEl.scrollLeft   / (VIRTUAL_W * zoom);
-      const vy = scrollEl.scrollTop    / (VIRTUAL_H * zoom);
-      ctx.strokeStyle = "var(--accent)";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(vx * MM_W, vy * MM_H, vw * MM_W, vh * MM_H);
-      ctx.fillStyle = "oklch(0.68 0.18 264 / 0.12)";
-      ctx.fillRect(vx * MM_W, vy * MM_H, vw * MM_W, vh * MM_H);
+    // Throttle minimap to 8fps max — sufficient for a thumbnail, saves mobile GPU
+    let lastDraw = 0;
+    const draw = (ts: number) => {
+      if (ts - lastDraw >= 125) { // 8fps
+        const mm = mmRef.current; if (mm && canvasEl && scrollEl) {
+          const ctx = mm.getContext("2d"); if (ctx) {
+            ctx.clearRect(0, 0, MM_W, MM_H);
+            ctx.drawImage(canvasEl, 0, 0, MM_W, MM_H);
+            const vw = scrollEl.clientWidth  / (VIRTUAL_W * zoom);
+            const vh = scrollEl.clientHeight / (VIRTUAL_H * zoom);
+            const vx = scrollEl.scrollLeft   / (VIRTUAL_W * zoom);
+            const vy = scrollEl.scrollTop    / (VIRTUAL_H * zoom);
+            ctx.strokeStyle = "#6b83f0";
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(vx * MM_W, vy * MM_H, Math.min(vw,1) * MM_W, Math.min(vh,1) * MM_H);
+            ctx.fillStyle = "rgba(100,120,240,0.10)";
+            ctx.fillRect(vx * MM_W, vy * MM_H, Math.min(vw,1) * MM_W, Math.min(vh,1) * MM_H);
+          }
+        }
+        lastDraw = ts;
+      }
+      rafRef.current = requestAnimationFrame(draw);
     };
-    const loop = () => { draw(); rafRef.current = requestAnimationFrame(loop); };
-    rafRef.current = requestAnimationFrame(loop);
+    rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
   }, [canvasEl, scrollEl, zoom]);
 
