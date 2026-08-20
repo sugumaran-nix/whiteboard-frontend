@@ -21,11 +21,14 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 backdrop-blur-sm dark:bg-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-4 backdrop-blur-sm dark:bg-black/60" role="presentation">
       <form
         onSubmit={handleSubmit}
-        aria-label="Choose your display name"
-        className="w-full max-w-sm animate-pop-in rounded-panel border border-line bg-surface p-6 shadow-lg"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="join-board-title"
+        aria-describedby="join-board-description"
+        className="w-full max-w-sm animate-pop-in rounded-panel border border-line bg-surface p-5 shadow-lg sm:p-6"
       >
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-display text-lg font-semibold text-white shadow-sm" style={{background:"var(--accent)"}}>
@@ -33,11 +36,11 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
           </span>
           <div className="min-w-0">
             <p className="truncate font-mono text-[11px] uppercase tracking-wider text-accent">Room {roomId}</p>
-            <h2 className="font-display text-xl font-semibold leading-tight">What should we call you?</h2>
+            <h2 id="join-board-title" className="font-display text-xl font-semibold leading-tight">What should we call you?</h2>
           </div>
         </div>
 
-        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+        <p id="join-board-description" className="mt-3 text-sm leading-relaxed text-ink-soft">
           Others in this room will see this name next to your cursor.
         </p>
 
@@ -47,7 +50,7 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
           onChange={(e) => setName(e.target.value.slice(0, 24))}
           placeholder="Your name"
           aria-label="Your name"
-          className="mt-4 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm outline-none transition focus:border-accent"
+          className="mt-4 min-h-11 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
 
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -56,7 +59,7 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
               key={s}
               type="button"
               onClick={() => setName(s)}
-              className="rounded-full border border-line px-2.5 py-1 text-[11px] text-ink-soft transition hover:border-accent hover:text-accent"
+              className="min-h-11 rounded-full border border-line px-3 py-1 text-[11px] text-ink-soft transition hover:border-accent hover:text-accent"
             >
               {s}
             </button>
@@ -65,7 +68,7 @@ export default function NameModal({ roomId, defaultName, onJoin }: NameModalProp
 
         <button
           type="submit"
-          className="mt-5 w-full rounded-lg py-2.5 text-sm font-medium text-white transition hover:brightness-[1.06] active:scale-[0.99]" style={{background:"var(--accent)",boxShadow:"var(--shadow-glow)"}}
+          className="mt-5 min-h-11 w-full rounded-lg py-2.5 text-sm font-medium text-white transition hover:brightness-[1.06] active:scale-[0.99]" style={{background:"var(--accent)",boxShadow:"var(--shadow-glow)"}}
         >
           Join board
         </button>

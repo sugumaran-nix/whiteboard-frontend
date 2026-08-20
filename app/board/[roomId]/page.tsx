@@ -49,7 +49,15 @@ export default function BoardPage() {
   const [shiftHeld, setShiftHeld] = useState(false);
 
   const [zoom,      setZoom]      = useState(1);
+  const zoomInitialisedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (zoomInitialisedRef.current) return;
+    zoomInitialisedRef.current = true;
+    const responsiveZoom = Math.min(1, Math.max(0.5, window.innerWidth / 1600));
+    setZoom(responsiveZoom);
+  }, []);
 
   const [selfId,     setSelfId]     = useState("");
   const [selfColor,  setSelfColor]  = useState("#2454FF");
@@ -86,15 +94,6 @@ export default function BoardPage() {
   useEffect(() => { nameRef.current = name; }, [name]);
 
   useEffect(() => { if (roomId) rememberBoard(roomId); }, [roomId]);
-
-  // Get raw canvas element for minimap
-  useEffect(() => {
-    const id = setInterval(() => {
-      const el = canvasRef.current?.getCanvasEl();
-      if (el) { setCanvasEl(el); clearInterval(id); }
-    }, 100);
-    return () => clearInterval(id);
-  }, []);
 
   const send = useCallback((msg: ClientMessage | { type: "pong" }) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
@@ -337,10 +336,9 @@ export default function BoardPage() {
   const getTextStyle = (): React.CSSProperties => {
     if (!textInput || !scrollRef.current) return { display: "none" };
     const scroll = scrollRef.current;
-    const railOffset = railCollapsed ? 52 : 60;
     return {
       position: "fixed",
-      left: textInput.point.x * VIRTUAL_W * zoom - scroll.scrollLeft + railOffset,
+      left: textInput.point.x * VIRTUAL_W * zoom - scroll.scrollLeft,
       top:  textInput.point.y * VIRTUAL_H * zoom - scroll.scrollTop  + NAVBAR_H,
       minWidth: 160, zIndex: 60,
     };
@@ -366,8 +364,8 @@ export default function BoardPage() {
       <div ref={scrollRef}
         onDragOver={e => e.preventDefault()}
         onDrop={handleImageDrop}
-        className="absolute inset-x-0 bottom-0 overflow-auto"
-        style={{ top: `${NAVBAR_H}px`, paddingBottom: "max(134px, calc(120px + env(safe-area-inset-bottom, 0px)))" }}>
+        className="absolute inset-x-0 bottom-0 overflow-auto overscroll-contain"
+        style={{ top: `${NAVBAR_H}px`, paddingBottom: "max(134px, calc(120px + env(safe-area-inset-bottom, 0px)))", WebkitOverflowScrolling: "touch" }}>
         <div style={{ width: VIRTUAL_W * zoom, height: VIRTUAL_H * zoom, position: "relative" }}>
           <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: VIRTUAL_W, height: VIRTUAL_H, willChange: "transform" }}>
             <Canvas
@@ -380,6 +378,7 @@ export default function BoardPage() {
               shiftConstrain={shiftHeld}
               disabled={!hasJoined}
               zoom={zoom}
+              onReady={setCanvasEl}
               onTextPlace={handleTextPlace}
               onStrokeStart={s => {
                 redoStackRef.current = []; setRedoLen(0);

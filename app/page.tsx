@@ -74,7 +74,7 @@ export default function Home() {
             <span style={{ color: "var(--accent)" }}>live.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-md text-balance text-[16px] leading-relaxed text-ink-soft sm:text-[17px]">
-            Open a board, share the link. Every stroke appears on everyone's screen the moment you draw it — no login, no friction.
+            Open a board, share the link. Every stroke appears on everyone&apos;s screen the moment you draw it — no login, no friction.
           </p>
         </div>
 

@@ -1,5 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#fcfcfe",
+};
 
 export const metadata: Metadata = {
   title: "Sketchline — draw together, live",
@@ -16,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="font-body antialiased">{children}</body>
+      <body className="min-h-dvh overflow-hidden font-body antialiased">{children}</body>
     </html>
   );
 }

@@ -5,6 +5,14 @@ import type { Point, Stroke, Tool, DrawTool } from "@/lib/types";
 export const VIRTUAL_W = 4000;
 export const VIRTUAL_H = 3000;
 const WIDTH_REF = 900;
+const MAX_CANVAS_PIXELS = 16_000_000;
+
+function getCanvasDpr() {
+  const deviceDpr = window.devicePixelRatio || 1;
+  const pixelCapDpr = Math.sqrt(MAX_CANVAS_PIXELS / (VIRTUAL_W * VIRTUAL_H));
+  const mobileCapDpr = window.matchMedia("(max-width: 639px)").matches ? 0.75 : 1.25;
+  return Math.min(deviceDpr, pixelCapDpr, mobileCapDpr);
+}
 
 function hashStr(s: string): number {
   let h = 0x811c9dc5;
@@ -85,7 +93,7 @@ function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
       for (let i = 0; i < pts.length - 1; i++) {
         const dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y;
         const len = Math.sqrt(dx*dx+dy*dy);
-        for (let d = 0; d < len; d += 2.5) {
+        for (let d = 0; d < len; d += 4.5) {
           const t = d / len;
           ctx.globalAlpha = rand() * 0.18 * (stroke.opacity ?? 1);
           ctx.beginPath();
@@ -115,7 +123,7 @@ function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
       ctx.fillStyle = stroke.color; ctx.globalAlpha = (stroke.opacity ?? 1) * 0.92;
       for (let i = 0; i < pts.length - 1; i++) {
         const cdx = pts[i+1].x-pts[i].x, cdy = pts[i+1].y-pts[i].y;
-        const clen = Math.sqrt(cdx*cdx+cdy*cdy), steps = Math.max(1, Math.ceil(clen));
+        const clen = Math.sqrt(cdx*cdx+cdy*cdy), steps = Math.max(1, Math.ceil(clen / 2));
         for (let s = 0; s <= steps; s++) {
           const t = s/steps;
           ctx.beginPath();
@@ -127,7 +135,7 @@ function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     }
 
     case "crayon": {
-      for (let pass = 0; pass < 5; pass++) {
+      for (let pass = 0; pass < 3; pass++) {
         const rand = mkRand(hashStr(stroke.strokeId) ^ (0xcafe + pass * 1000));
         const ox = (rand()-0.5)*pw*0.55, oy = (rand()-0.5)*pw*0.55;
         const offPts = pts.map(p => ({ x: p.x+ox, y: p.y+oy }));
@@ -139,7 +147,7 @@ function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     }
 
     case "oil": {
-      for (let i = 0; i < 11; i++) {
+      for (let i = 0; i < 7; i++) {
         const rand = mkRand(hashStr(stroke.strokeId) ^ (0xbabe + i * 997));
         const t2 = i/10 - 0.5;
         const offPts = pts.map((p, j) => {
@@ -155,7 +163,7 @@ function renderSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     }
 
     case "watercolour": {
-      for (let pass = 0; pass < 6; pass++) {
+      for (let pass = 0; pass < 4; pass++) {
         const rand = mkRand(hashStr(stroke.strokeId) ^ (0xf00d + pass * 777));
         const ox = (rand()-0.5)*pw*0.55, oy = (rand()-0.5)*pw*0.55;
         const offPts = pts.map(p => ({ x: p.x+ox, y: p.y+oy }));
@@ -247,7 +255,7 @@ function renderSegment(ctx: CanvasRenderingContext2D, stroke: Stroke, from: Poin
     case "highlighter": ctx.strokeStyle = stroke.color; ctx.lineWidth = pw * 4; ctx.lineCap = "square"; ctx.lineJoin = "miter"; ctx.globalAlpha = (stroke.opacity ?? 1) * 0.35; ctx.globalCompositeOperation = "multiply"; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(tx, ty); ctx.stroke(); break;
     case "calligraphy": {
       ctx.fillStyle = stroke.color; ctx.globalAlpha = (stroke.opacity ?? 1) * 0.92;
-      const cdx = tx - fx, cdy = ty - fy, clen = Math.sqrt(cdx * cdx + cdy * cdy), steps = Math.max(1, Math.ceil(clen));
+      const cdx = tx - fx, cdy = ty - fy, clen = Math.sqrt(cdx * cdx + cdy * cdy), steps = Math.max(1, Math.ceil(clen / 2));
       for (let i = 0; i <= steps; i++) { const t = i / steps; ctx.beginPath(); ctx.ellipse(fx + cdx * t, fy + cdy * t, pw * 0.85, pw * 0.16, Math.PI / 4, 0, Math.PI * 2); ctx.fill(); }
       break;
     }
@@ -260,7 +268,7 @@ function renderSegment(ctx: CanvasRenderingContext2D, stroke: Stroke, from: Poin
       const rand = mkRand(seed ^ 0xbabe); ctx.lineCap = "round";
       const odx = tx - fx, ody = ty - fy, olen = Math.sqrt(odx * odx + ody * ody) || 1;
       const perpX = -ody / olen, perpY = odx / olen;
-      for (let i = 0; i < 11; i++) { const t = i / 10 - 0.5, off = t * pw * 0.92; ctx.strokeStyle = stroke.color; ctx.lineWidth = Math.max(0.5, pw * 0.11); ctx.globalAlpha = (stroke.opacity ?? 1) * (0.3 + rand() * 0.38); ctx.beginPath(); ctx.moveTo(fx + perpX * off, fy + perpY * off); ctx.lineTo(tx + perpX * off, ty + perpY * off); ctx.stroke(); }
+      for (let i = 0; i < 7; i++) { const t = i / 10 - 0.5, off = t * pw * 0.92; ctx.strokeStyle = stroke.color; ctx.lineWidth = Math.max(0.5, pw * 0.11); ctx.globalAlpha = (stroke.opacity ?? 1) * (0.3 + rand() * 0.38); ctx.beginPath(); ctx.moveTo(fx + perpX * off, fy + perpY * off); ctx.lineTo(tx + perpX * off, ty + perpY * off); ctx.stroke(); }
       break;
     }
     case "watercolour": {
@@ -286,7 +294,7 @@ function renderPuff(ctx: CanvasRenderingContext2D, stroke: Stroke, point: Point,
   if (stroke.tool === "spray") {
     const rand = mkRand(hashStr(stroke.strokeId) ^ (pointIdx * 2654435761)), radius = pw * 0.92;
     ctx.fillStyle = stroke.color;
-    for (let i = 0; i < 30; i++) { const angle = rand() * Math.PI * 2, r = Math.sqrt(rand()) * radius; ctx.globalAlpha = (stroke.opacity ?? 1) * (rand() * 0.45 + 0.08); ctx.beginPath(); ctx.arc(px + Math.cos(angle) * r, py + Math.sin(angle) * r, rand() * 1.5 + 0.2, 0, Math.PI * 2); ctx.fill(); }
+    for (let i = 0; i < 20; i++) { const angle = rand() * Math.PI * 2, r = Math.sqrt(rand()) * radius; ctx.globalAlpha = (stroke.opacity ?? 1) * (rand() * 0.45 + 0.08); ctx.beginPath(); ctx.arc(px + Math.cos(angle) * r, py + Math.sin(angle) * r, rand() * 1.5 + 0.2, 0, Math.PI * 2); ctx.fill(); }
   } else if (stroke.tool === "eraser") {
     const eraserBg2 = canvasBg();
     ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = eraserBg2; ctx.globalAlpha = 1;
@@ -328,11 +336,12 @@ interface CanvasProps {
   onCursorMove: (point: Point) => void;
   disabled?: boolean;
   onTextPlace?: (point: Point) => void;
+  onReady?: (canvas: HTMLCanvasElement) => void;
 }
 
 const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   { tool, color, fillColor, width, opacity, shiftConstrain, zoom,
-    onStrokeStart, onStrokePoint, onStrokeEnd, onCursorMove, disabled, onTextPlace },
+    onStrokeStart, onStrokePoint, onStrokeEnd, onCursorMove, disabled, onTextPlace, onReady },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -348,6 +357,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const lastSpeedRef     = useRef<number>(0);
   const pendingPointsRef  = useRef<Array<{strokeId: string; point: Point}>>([]);
   const rafPendingRef     = useRef(false);
+  const outboundPointsRef = useRef<Map<string, Point>>(new Map());
+  const outboundRafRef    = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
@@ -384,13 +395,18 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = VIRTUAL_W * dpr; canvas.height = VIRTUAL_H * dpr;
+    const dpr = getCanvasDpr();
+    canvas.width = Math.round(VIRTUAL_W * dpr); canvas.height = Math.round(VIRTUAL_H * dpr);
     canvas.style.width = `${VIRTUAL_W}px`; canvas.style.height = `${VIRTUAL_H}px`;
-    const ctx = canvas.getContext("2d");
-    if (ctx) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctxRef.current = ctx; }
+    const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctxRef.current = ctx;
+    }
     fillBg(); redrawAll(historyRef.current);
-  }, []); // eslint-disable-line
+    onReady?.(canvas);
+  }, [fillBg, onReady, redrawAll]);
 
   // Redraw when dark mode class changes on <html>
   useEffect(() => {
@@ -458,7 +474,31 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     },
   }), [redrawAll, drawStroke]);
 
-  const stopSpray = () => { if (sprayTimerRef.current) { clearInterval(sprayTimerRef.current); sprayTimerRef.current = null; } };
+  const queueStrokePoint = useCallback((strokeId: string, point: Point) => {
+    outboundPointsRef.current.set(strokeId, point);
+    if (outboundRafRef.current !== null) return;
+    outboundRafRef.current = requestAnimationFrame(() => {
+      outboundRafRef.current = null;
+      const queued = Array.from(outboundPointsRef.current.entries());
+      outboundPointsRef.current.clear();
+      queued.forEach(([id, lastPoint]) => onStrokePoint(id, lastPoint));
+    });
+  }, [onStrokePoint]);
+
+  const flushStrokePoint = useCallback((strokeId: string) => {
+    const lastPoint = outboundPointsRef.current.get(strokeId);
+    if (lastPoint) {
+      outboundPointsRef.current.delete(strokeId);
+      onStrokePoint(strokeId, lastPoint);
+    }
+  }, [onStrokePoint]);
+
+  const stopSpray = () => {
+    if (sprayTimerRef.current) {
+      clearInterval(sprayTimerRef.current);
+      sprayTimerRef.current = null;
+    }
+  };
 
   const toNorm = (cx: number, cy: number): Point => {
     const c = canvasRef.current; if (!c) return { x: 0, y: 0 };
@@ -494,7 +534,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         const pos = lastPosRef.current; if (!pos || !pointerActiveRef.current) return;
         const s = activeRef.current.get(strokeId); if (!s) return;
         const ctx = ctxRef.current; if (!ctx) return;
-        const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); onStrokePoint(strokeId, pos);
+        const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); queueStrokePoint(strokeId, pos);
       }, 40);
     }
   };
@@ -512,14 +552,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     if (isShapeTool(tool)) {
       const ctx = ctxRef.current; if (!ctx) return;
       redrawAll(historyRef.current);
-      Array.from(activeRef.current.values()).forEach(s => { if (s.strokeId !== strokeId) drawStroke(s); });
       renderShape(ctx, { ...stroke, shapeEnd: point }); return;
     }
     if (tool === "spray") return;
     const prev = stroke.points[stroke.points.length - 1];
     if (prev) {
       const ddx = (point.x - prev.x) * VIRTUAL_W, ddy = (point.y - prev.y) * VIRTUAL_H;
-      if (ddx * ddx + ddy * ddy < 1.5) return;
+      if (ddx * ddx + ddy * ddy < 6) return;
       const ctx = ctxRef.current;
       if (ctx) renderSegment(ctx, stroke, prev, point, hashStr(strokeId) ^ (stroke.points.length * 1234567));
     }
@@ -536,7 +575,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     lastSpeedRef.current = lastSpeedRef.current * 0.6 + rawSpeed * 0.4;
     const pressure = Math.max(0.35, Math.min(1.0, 1.0 - lastSpeedRef.current / 120));
     (point as Point & { pressure?: number }).pressure = pressure;
-    stroke.points.push(point); onStrokePoint(strokeId, point);
+    stroke.points.push(point); queueStrokePoint(strokeId, point);
   };
 
   const endStroke = (e?: React.PointerEvent) => {
@@ -544,6 +583,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     pointerActiveRef.current = false; stopSpray();
     const strokeId = localIdRef.current; localIdRef.current = null; if (!strokeId) return;
     const stroke = activeRef.current.get(strokeId); if (!stroke) return;
+    flushStrokePoint(strokeId);
     if (isShapeTool(tool) && startPtRef.current && e) {
       const shapeEnd = constrain(startPtRef.current, toNorm(e.clientX, e.clientY));
       const dx = (shapeEnd.x - startPtRef.current.x) * VIRTUAL_W, dy = (shapeEnd.y - startPtRef.current.y) * VIRTUAL_H;
@@ -585,7 +625,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           const pos = lastPosRef.current; if (!pos || !pointerActiveRef.current) return;
           const s = activeRef.current.get(strokeId); if (!s) return;
           const ctx = ctxRef.current; if (!ctx) return;
-          const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); onStrokePoint(strokeId, pos);
+          const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); queueStrokePoint(strokeId, pos);
         }, 40);
       }
     }
@@ -615,14 +655,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     if (isShapeTool(tool)) {
       const ctx = ctxRef.current; if (!ctx) return;
       redrawAll(historyRef.current);
-      Array.from(activeRef.current.values()).forEach(s => { if (s.strokeId !== strokeId) drawStroke(s); });
       renderShape(ctx, { ...stroke, shapeEnd: point }); return;
     }
     if (tool === "spray") return;
     const prev = stroke.points[stroke.points.length - 1];
     if (prev) {
       const ddx = (point.x - prev.x) * VIRTUAL_W, ddy = (point.y - prev.y) * VIRTUAL_H;
-      if (ddx * ddx + ddy * ddy < 1.5) return;
+      if (ddx * ddx + ddy * ddy < 6) return;
       const ctx = ctxRef.current;
       if (ctx) renderSegment(ctx, stroke, prev, point, hashStr(strokeId) ^ (stroke.points.length * 1234567));
     }
@@ -639,7 +678,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     lastSpeedRef.current = lastSpeedRef.current * 0.6 + rawSpeed * 0.4;
     const pressure = Math.max(0.35, Math.min(1.0, 1.0 - lastSpeedRef.current / 120));
     (point as Point & { pressure?: number }).pressure = pressure;
-    stroke.points.push(point); onStrokePoint(strokeId, point);
+    stroke.points.push(point); queueStrokePoint(strokeId, point);
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
@@ -649,6 +688,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       pointerActiveRef.current = false; stopSpray();
       const strokeId = localIdRef.current; localIdRef.current = null; if (!strokeId) return;
       const stroke = activeRef.current.get(strokeId); if (!stroke) return;
+      flushStrokePoint(strokeId);
       if (isShapeTool(tool) && startPtRef.current) {
         const t = e.changedTouches[0];
         const shapeEnd = t ? constrain(startPtRef.current, toNorm(t.clientX, t.clientY)) : startPtRef.current;

@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import type React from "react";
 import { VIRTUAL_W, VIRTUAL_H } from "@/components/Canvas";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MinimapProps {
   canvasEl: HTMLCanvasElement | null;
@@ -15,8 +16,10 @@ const MM_H = Math.round(MM_W * VIRTUAL_H / VIRTUAL_W);
 export default function Minimap({ canvasEl, scrollRef, zoom }: MinimapProps) {
   const mmRef  = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
+    if (isMobile) return;
     let lastDraw = 0;
     const draw = (ts: number) => {
       if (ts - lastDraw >= 125) {
@@ -45,7 +48,7 @@ export default function Minimap({ canvasEl, scrollRef, zoom }: MinimapProps) {
     };
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [canvasEl, scrollRef, zoom]);
+  }, [canvasEl, isMobile, scrollRef, zoom]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const scrollEl = scrollRef.current;
@@ -59,6 +62,8 @@ export default function Minimap({ canvasEl, scrollRef, zoom }: MinimapProps) {
       behavior: "smooth",
     });
   };
+
+  if (isMobile) return null;
 
   return (
     <div className="fixed bottom-16 right-3 z-30 hidden overflow-hidden rounded-xl border border-line bg-surface shadow-md sm:block"

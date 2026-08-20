@@ -190,3 +190,47 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* ─── Responsive interaction defaults ───────────────────────────────────────── */
+button, a, input, textarea, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, [role="button"] {
+  touch-action: manipulation;
+}
+
+@media (max-width: 639px) {
+  html, body {
+    min-width: 320px;
+    overflow: hidden;
+  }
+
+  .mobile-scroll-x {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-draw-in,
+  .animate-rise-in,
+  .animate-pop-in,
+  .animate-slide-up,
+  .animate-toast-in,
+  .animate-cursor-blink,
+  .animate-pulse-dot {
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(button, a, input, textarea, select):focus-visible {
+    outline: 2px solid CanvasText;
+  }
+}

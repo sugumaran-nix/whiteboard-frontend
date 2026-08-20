@@ -396,7 +396,7 @@ export default function Toolbar({
 
       {/* ══════════════ MOBILE (bottom dock) ══════════════ */}
       <div ref={mobileRef}
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-50 sm:hidden"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-50 pb-safe sm:hidden"
         onPointerDown={e=>e.stopPropagation()}
         onTouchStart={e=>e.stopPropagation()}>
 
@@ -516,11 +516,13 @@ export default function Toolbar({
         )}
 
         {/* Row 1: main tools */}
-        <div className="mx-2 mb-1.5 flex items-center gap-1 rounded-2xl border border-line bg-surface px-2 py-1.5"
+        <div className="mobile-scroll-x mx-2 mb-1.5 flex items-center gap-1 overflow-x-auto rounded-2xl border border-line bg-surface px-2 py-1.5"
           style={{boxShadow:"var(--shadow-sm)"}}>
 
           {/* Brush */}
           <button onPointerDown={e=>{e.stopPropagation();toggle("brush");if(!isBrush(tool))setTool(BRUSHES[0].id);}}
+            aria-label="Choose brush"
+            aria-expanded={panel === "brush"}
             className={`flex flex-1 items-center gap-2 rounded-xl px-2.5 py-2 active:scale-95 transition
               ${isBrush(tool)?"ring-2 ring-accent bg-accent-soft":""}`}>
             <PenIcon/>
@@ -551,7 +553,7 @@ export default function Toolbar({
         </div>
 
         {/* Row 2: style + actions */}
-        <div className="mx-2 mb-3 flex items-center gap-1 rounded-2xl border border-line bg-surface px-2 py-1"
+        <div className="mobile-scroll-x mx-2 mb-3 flex items-center gap-1 overflow-x-auto rounded-2xl border border-line bg-surface px-2 py-1"
           style={{paddingBottom:"calc(0.25rem + env(safe-area-inset-bottom,0px))", boxShadow:"var(--shadow-sm)"}}>
 
           <MobileDockBtn label="Undo" disabled={!canUndo}
@@ -562,6 +564,8 @@ export default function Toolbar({
 
           {tool!=="eraser" && (
             <button onPointerDown={e=>{e.stopPropagation();toggle("stroke");}}
+              aria-label="Stroke color"
+              aria-expanded={panel === "stroke"}
               className={`flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl transition active:scale-90
                 ${panel==="stroke"?"ring-2 ring-accent bg-accent-soft":""}`}>
               <span className="h-6 w-6 rounded-full border-2 border-white"
@@ -572,6 +576,8 @@ export default function Toolbar({
 
           {isShape(tool) && (
             <button onPointerDown={e=>{e.stopPropagation();toggle("fill");}}
+              aria-label="Fill color"
+              aria-expanded={panel === "fill"}
               className={`flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl transition active:scale-90
                 ${panel==="fill"?"ring-2 ring-accent bg-accent-soft":""}`}>
               <span className="h-6 w-6 rounded-full border-2 border-dashed border-line-strong"
@@ -581,6 +587,8 @@ export default function Toolbar({
           )}
 
           <button onPointerDown={e=>{e.stopPropagation();toggle("size");}}
+            aria-label="Brush size"
+            aria-expanded={panel === "size"}
             className={`flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl transition active:scale-90
               ${panel==="size"?"ring-2 ring-accent bg-accent-soft":""}`}>
             <span className="rounded-full bg-ink"
@@ -590,6 +598,8 @@ export default function Toolbar({
 
           {tool!=="eraser" && (
             <button onPointerDown={e=>{e.stopPropagation();toggle("opacity");}}
+              aria-label="Opacity"
+              aria-expanded={panel === "opacity"}
               className={`flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl transition active:scale-90
                 ${panel==="opacity"?"ring-2 ring-accent bg-accent-soft":""}`}>
               <span className="h-5 w-5 rounded-full border border-line-strong"
@@ -601,22 +611,26 @@ export default function Toolbar({
           <Vsep/>
 
           <button onPointerDown={e=>{e.stopPropagation();setZoom(Math.min(zoom+0.5,4));}}
+            aria-label="Zoom in"
             className="flex h-12 w-10 items-center justify-center rounded-xl text-ink-soft active:scale-90">
             <ZoomInIcon/>
           </button>
           <button onPointerDown={e=>{e.stopPropagation();setZoom(Math.max(zoom-0.5,0.25));}}
+            aria-label="Zoom out"
             className="flex h-12 w-10 items-center justify-center rounded-xl text-ink-soft active:scale-90">
             <ZoomOutIcon/>
           </button>
           <Vsep/>
 
           <button onPointerDown={e=>{e.stopPropagation();onDownload();}}
+            aria-label="Download board as PNG"
             className="flex h-12 min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 active:scale-95 text-ink-soft">
             <DownloadIcon/>
             <span className="font-mono text-[7px] text-ink-faint leading-none">save</span>
           </button>
 
           <button onPointerDown={e=>{e.stopPropagation();handleClear();}}
+            aria-label={confirmClear ? "Confirm clear board" : "Clear board"}
             className={`flex h-12 min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 active:scale-95 transition
               ${confirmClear?"bg-danger/10 text-danger ring-2 ring-danger":"text-ink-soft"}`}>
             <TrashIcon/>
@@ -745,8 +759,8 @@ function MobileToolBtn({ children, label, active, onClick }:{
   children:React.ReactNode; label:string; active:boolean; onClick:()=>void;
 }) {
   return (
-    <button onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 rounded-xl py-3 px-1 active:scale-95 transition
+    <button onClick={onClick} aria-label={label} aria-pressed={active}
+      className={`flex min-h-[44px] flex-col items-center gap-1.5 rounded-xl py-3 px-1 active:scale-95 transition
         ${active?"bg-accent text-white":"bg-surface-2 text-ink"}`}>
       {children}
       <span className="text-[11px] font-semibold leading-tight">{label}</span>
@@ -759,8 +773,8 @@ function MobileDockBtn({ children, label, active=false, disabled=false, onPointe
   onPointerDown:(e:React.PointerEvent)=>void;
 }) {
   return (
-    <button onPointerDown={onPointerDown} disabled={disabled} aria-label={label}
-      className={`flex h-12 min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 active:scale-90 transition
+    <button onPointerDown={onPointerDown} disabled={disabled} aria-label={label} aria-pressed={active}
+      className={`flex h-12 min-w-[44px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2 active:scale-90 transition
         ${disabled?"opacity-30 cursor-not-allowed text-ink-faint"
           :active?"ring-2 ring-accent bg-accent-soft text-accent"
           :"text-ink-soft"}`}>
@@ -781,12 +795,13 @@ function Popover({ children }:{ children:React.ReactNode }) {
 
 function MobilePanel({ title, onClose, children }:{ title:string; onClose:()=>void; children:React.ReactNode }) {
   return (
-    <div className="mx-2 mb-2 rounded-2xl border border-line bg-surface p-3 animate-slide-up"
+    <div className="mx-2 mb-2 max-h-[min(44dvh,360px)] overflow-y-auto rounded-2xl border border-line bg-surface p-3 animate-slide-up"
       style={{boxShadow:"var(--shadow-lg)"}}>
       <div className="mb-2.5 flex items-center justify-between">
         <p className="font-mono text-[9px] uppercase tracking-widest text-ink-faint">{title}</p>
         <button onPointerDown={e=>{e.stopPropagation();onClose();}}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint hover:text-ink text-[14px]">✕</button>
+          aria-label={`Close ${title}`}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-faint hover:text-ink text-[18px]">×</button>
       </div>
       {children}
     </div>
