@@ -5,6 +5,17 @@ import type { Point, Stroke, Tool, DrawTool } from "@/lib/types";
 export const VIRTUAL_W = 4000;
 export const VIRTUAL_H = 3000;
 const WIDTH_REF = 900;
+const DESKTOP_BACKING_CAP = 1.25;
+const TOUCH_BACKING_CAP = 0.5;
+const TOUCH_POINT_MIN_DIST = 6;
+
+function getBackingScale() {
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const narrowViewport = window.matchMedia("(max-width: 767px)").matches;
+  const dpr = window.devicePixelRatio || 1;
+  const cap = coarsePointer || narrowViewport ? TOUCH_BACKING_CAP : DESKTOP_BACKING_CAP;
+  return Math.min(dpr, cap);
+}
 
 function hashStr(s: string): number {
   let h = 0x811c9dc5;
@@ -328,11 +339,12 @@ interface CanvasProps {
   onCursorMove: (point: Point) => void;
   disabled?: boolean;
   onTextPlace?: (point: Point) => void;
+  onReady?: (canvas: HTMLCanvasElement) => void;
 }
 
 const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   { tool, color, fillColor, width, opacity, shiftConstrain, zoom,
-    onStrokeStart, onStrokePoint, onStrokeEnd, onCursorMove, disabled, onTextPlace },
+    onStrokeStart, onStrokePoint, onStrokeEnd, onCursorMove, disabled, onTextPlace, onReady },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -348,8 +360,38 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const lastSpeedRef     = useRef<number>(0);
   const pendingPointsRef  = useRef<Array<{strokeId: string; point: Point}>>([]);
   const rafPendingRef     = useRef(false);
+  const localPointQueueRef = useRef<Map<string, Point>>(new Map());
+  const localPointRafRef = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  const flushStrokePoints = useCallback((strokeId?: string) => {
+    if (strokeId) {
+      const nextPoint = localPointQueueRef.current.get(strokeId);
+      if (nextPoint) {
+        onStrokePoint(strokeId, nextPoint);
+        localPointQueueRef.current.delete(strokeId);
+      }
+    } else {
+      const pending = Array.from(localPointQueueRef.current.entries());
+      localPointQueueRef.current.clear();
+      pending.forEach(([id, nextPoint]) => onStrokePoint(id, nextPoint));
+    }
+  }, [onStrokePoint]);
+
+  const queueStrokePoint = useCallback((strokeId: string, point: Point) => {
+    localPointQueueRef.current.set(strokeId, point);
+    if (localPointRafRef.current !== null) return;
+    localPointRafRef.current = window.requestAnimationFrame(() => {
+      localPointRafRef.current = null;
+      flushStrokePoints();
+    });
+  }, [flushStrokePoints]);
+
+  useEffect(() => () => {
+    if (localPointRafRef.current !== null) window.cancelAnimationFrame(localPointRafRef.current);
+    localPointQueueRef.current.clear();
+  }, []);
 
   // Pinch-to-zoom state
   const pinchRef = useRef<{ dist: number; midX: number; midY: number } | null>(null);
@@ -384,13 +426,29 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = VIRTUAL_W * dpr; canvas.height = VIRTUAL_H * dpr;
-    canvas.style.width = `${VIRTUAL_W}px`; canvas.style.height = `${VIRTUAL_H}px`;
-    const ctx = canvas.getContext("2d");
-    if (ctx) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctxRef.current = ctx; }
-    fillBg(); redrawAll(historyRef.current);
-  }, []); // eslint-disable-line
+    const configure = () => {
+      const scale = getBackingScale();
+      const nextWidth = Math.round(VIRTUAL_W * scale);
+      const nextHeight = Math.round(VIRTUAL_H * scale);
+      if (canvas.width === nextWidth && canvas.height === nextHeight && ctxRef.current) return;
+      canvas.width = nextWidth;
+      canvas.height = nextHeight;
+      canvas.style.width = `${VIRTUAL_W}px`;
+      canvas.style.height = `${VIRTUAL_H}px`;
+      const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+      if (!ctx) return;
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "medium";
+      ctxRef.current = ctx;
+      fillBg();
+      redrawAll(historyRef.current);
+      onReady?.(canvas);
+    };
+    configure();
+    window.addEventListener("resize", configure, { passive: true });
+    return () => window.removeEventListener("resize", configure);
+  }, [fillBg, onReady, redrawAll]);
 
   // Redraw when dark mode class changes on <html>
   useEffect(() => {
@@ -494,7 +552,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         const pos = lastPosRef.current; if (!pos || !pointerActiveRef.current) return;
         const s = activeRef.current.get(strokeId); if (!s) return;
         const ctx = ctxRef.current; if (!ctx) return;
-        const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); onStrokePoint(strokeId, pos);
+        const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); queueStrokePoint(strokeId, pos);
       }, 40);
     }
   };
@@ -519,7 +577,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const prev = stroke.points[stroke.points.length - 1];
     if (prev) {
       const ddx = (point.x - prev.x) * VIRTUAL_W, ddy = (point.y - prev.y) * VIRTUAL_H;
-      if (ddx * ddx + ddy * ddy < 1.5) return;
+      const minDist = 1.5;
+      if (ddx * ddx + ddy * ddy < minDist * minDist) return;
       const ctx = ctxRef.current;
       if (ctx) renderSegment(ctx, stroke, prev, point, hashStr(strokeId) ^ (stroke.points.length * 1234567));
     }
@@ -536,7 +595,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     lastSpeedRef.current = lastSpeedRef.current * 0.6 + rawSpeed * 0.4;
     const pressure = Math.max(0.35, Math.min(1.0, 1.0 - lastSpeedRef.current / 120));
     (point as Point & { pressure?: number }).pressure = pressure;
-    stroke.points.push(point); onStrokePoint(strokeId, point);
+    stroke.points.push(point); queueStrokePoint(strokeId, point);
   };
 
   const endStroke = (e?: React.PointerEvent) => {
@@ -544,6 +603,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     pointerActiveRef.current = false; stopSpray();
     const strokeId = localIdRef.current; localIdRef.current = null; if (!strokeId) return;
     const stroke = activeRef.current.get(strokeId); if (!stroke) return;
+    flushStrokePoints(strokeId);
     if (isShapeTool(tool) && startPtRef.current && e) {
       const shapeEnd = constrain(startPtRef.current, toNorm(e.clientX, e.clientY));
       const dx = (shapeEnd.x - startPtRef.current.x) * VIRTUAL_W, dy = (shapeEnd.y - startPtRef.current.y) * VIRTUAL_H;
@@ -585,7 +645,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           const pos = lastPosRef.current; if (!pos || !pointerActiveRef.current) return;
           const s = activeRef.current.get(strokeId); if (!s) return;
           const ctx = ctxRef.current; if (!ctx) return;
-          const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); onStrokePoint(strokeId, pos);
+          const idx = s.points.length; renderPuff(ctx, s, pos, idx); s.points.push(pos); queueStrokePoint(strokeId, pos);
         }, 40);
       }
     }
@@ -622,7 +682,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const prev = stroke.points[stroke.points.length - 1];
     if (prev) {
       const ddx = (point.x - prev.x) * VIRTUAL_W, ddy = (point.y - prev.y) * VIRTUAL_H;
-      if (ddx * ddx + ddy * ddy < 1.5) return;
+      const minDist = TOUCH_POINT_MIN_DIST;
+      if (ddx * ddx + ddy * ddy < minDist * minDist) return;
       const ctx = ctxRef.current;
       if (ctx) renderSegment(ctx, stroke, prev, point, hashStr(strokeId) ^ (stroke.points.length * 1234567));
     }
@@ -639,7 +700,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     lastSpeedRef.current = lastSpeedRef.current * 0.6 + rawSpeed * 0.4;
     const pressure = Math.max(0.35, Math.min(1.0, 1.0 - lastSpeedRef.current / 120));
     (point as Point & { pressure?: number }).pressure = pressure;
-    stroke.points.push(point); onStrokePoint(strokeId, point);
+    stroke.points.push(point); queueStrokePoint(strokeId, point);
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
@@ -649,6 +710,7 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       pointerActiveRef.current = false; stopSpray();
       const strokeId = localIdRef.current; localIdRef.current = null; if (!strokeId) return;
       const stroke = activeRef.current.get(strokeId); if (!stroke) return;
+      flushStrokePoints(strokeId);
       if (isShapeTool(tool) && startPtRef.current) {
         const t = e.changedTouches[0];
         const shapeEnd = t ? constrain(startPtRef.current, toNorm(t.clientX, t.clientY)) : startPtRef.current;

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type React from "react";
 import { VIRTUAL_W, VIRTUAL_H } from "@/components/Canvas";
 
@@ -15,8 +15,18 @@ const MM_H = Math.round(MM_W * VIRTUAL_H / VIRTUAL_W);
 export default function Minimap({ canvasEl, scrollRef, zoom }: MinimapProps) {
   const mmRef  = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
+  const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
+    const media = window.matchMedia("(min-width: 640px)");
+    const update = () => setEnabled(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
     let lastDraw = 0;
     const draw = (ts: number) => {
       if (ts - lastDraw >= 125) {
@@ -45,7 +55,7 @@ export default function Minimap({ canvasEl, scrollRef, zoom }: MinimapProps) {
     };
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [canvasEl, scrollRef, zoom]);
+  }, [canvasEl, scrollRef, zoom, enabled]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const scrollEl = scrollRef.current;

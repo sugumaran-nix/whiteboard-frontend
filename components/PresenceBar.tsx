@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import type { RemoteUser } from "@/lib/types";
@@ -49,7 +50,7 @@ export default function PresenceBar({
     >
       {/* Left: Logo + room code */}
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-        <a
+        <Link
           href="/"
           aria-label="Back to Sketchline home"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition hover:opacity-80"
@@ -58,7 +59,7 @@ export default function PresenceBar({
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
             <path d="M4 18c3-8 6 4 8-2s4 2 8-6" />
           </svg>
-        </a>
+        </Link>
 
         <span className="hidden font-display text-[14px] font-semibold tracking-tight text-ink sm:block">Sketchline</span>
         <span className="hidden h-4 w-px bg-[var(--line)] sm:block" />

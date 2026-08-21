@@ -49,7 +49,21 @@ export default function BoardPage() {
   const [shiftHeld, setShiftHeld] = useState(false);
 
   const [zoom,      setZoom]      = useState(1);
+  const initialZoomAppliedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const applyInitialZoom = () => {
+      if (initialZoomAppliedRef.current) return;
+      const compactViewport = window.matchMedia("(max-width: 1023px)").matches;
+      if (compactViewport) {
+        const responsiveZoom = Math.min(0.72, Math.max(0.25, (window.innerWidth - 24) / 1600));
+        setZoom(responsiveZoom);
+      }
+      initialZoomAppliedRef.current = true;
+    };
+    applyInitialZoom();
+  }, []);
 
   const [selfId,     setSelfId]     = useState("");
   const [selfColor,  setSelfColor]  = useState("#2454FF");
@@ -87,14 +101,6 @@ export default function BoardPage() {
 
   useEffect(() => { if (roomId) rememberBoard(roomId); }, [roomId]);
 
-  // Get raw canvas element for minimap
-  useEffect(() => {
-    const id = setInterval(() => {
-      const el = canvasRef.current?.getCanvasEl();
-      if (el) { setCanvasEl(el); clearInterval(id); }
-    }, 100);
-    return () => clearInterval(id);
-  }, []);
 
   const send = useCallback((msg: ClientMessage | { type: "pong" }) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
@@ -381,6 +387,7 @@ export default function BoardPage() {
               disabled={!hasJoined}
               zoom={zoom}
               onTextPlace={handleTextPlace}
+              onReady={setCanvasEl}
               onStrokeStart={s => {
                 redoStackRef.current = []; setRedoLen(0);
                 send({ type: "stroke_start", ...s });
